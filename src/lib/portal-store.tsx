@@ -1,6 +1,8 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import type {
+  Batch,
   ChatMessage,
+  Contact,
   Counselor,
   Profile,
   ScheduleEvent,
@@ -17,15 +19,26 @@ type PortalState = {
   setProfile: (p: Profile) => void;
   documents: StudentDocument[];
   addDocument: (d: StudentDocument) => void;
+  updateDocument: (id: string, patch: Partial<StudentDocument>) => void;
   removeDocument: (id: string) => void;
   tasks: StudentTask[];
+  addTask: (t: StudentTask) => void;
+  updateTask: (id: string, patch: Partial<StudentTask>) => void;
+  deleteTask: (id: string) => void;
   setTaskStatus: (id: string, status: StudentTask["status"]) => void;
   uploadTaskFile: (id: string, fileName: string) => void;
   events: ScheduleEvent[];
+  addEvent: (e: ScheduleEvent) => void;
+  updateEvent: (id: string, patch: Partial<ScheduleEvent>) => void;
   uploadEventAssignment: (id: string, fileName: string) => void;
+  batches: Batch[];
+  createBatch: (b: Batch) => void;
   universities: University[];
+  addUniversity: (u: University) => void;
+  updateUniversity: (id: string, patch: Partial<University>) => void;
+  contacts: Contact[];
   messages: ChatMessage[];
-  sendMessage: (text: string) => void;
+  sendMessage: (contactId: string, text: string) => void;
   unreadMessages: number;
 };
 
@@ -57,6 +70,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     majors: "Computer Science, Cognitive Science, Applied Math",
     indianExams: "Targeting JEE Mains as a backup. CUET for Ashoka & Plaksha.",
     budget: "Need partial scholarship (Budget: $20k-$30k/yr)",
+    personalMeetingLink: "https://meet.google.com/aarav-personal",
     activities: [
       {
         id: "a1",
@@ -89,6 +103,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       description: "Incorporate counselor feedback on hook & ending.",
       category: "Documentation",
       dueDate: "2026-06-10",
+      createdAt: "2026-05-20",
       status: "inprogress",
       requiresUpload: true,
       progress: 60,
@@ -99,6 +114,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       description: "Synced from Schedule",
       category: "Test Prep",
       dueDate: "2026-05-30",
+      createdAt: "2026-05-22",
       status: "todo",
       syncedFromScheduleId: "e1",
       requiresUpload: true,
@@ -109,6 +125,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       description: "Shortlist programs aligned with CS + Cog Sci.",
       category: "Research",
       dueDate: "2026-06-20",
+      createdAt: "2026-05-15",
       status: "todo",
     },
     {
@@ -117,6 +134,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       description: "Get signed copy from school office.",
       category: "Documentation",
       dueDate: "2026-05-15",
+      createdAt: "2026-04-30",
       status: "completed",
       requiresUpload: true,
       uploadedFile: "Predicted_Grades.pdf",
@@ -163,7 +181,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     },
   ]);
 
-  const [universities] = useState<University[]>([
+  const [universities, setUniversities] = useState<University[]>([
     {
       id: "u1",
       name: "Carnegie Mellon University",
@@ -175,6 +193,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       coreVision: "Rigor, depth, and computational excellence.",
       ecBiases: "Original technical projects, research, olympiad performance.",
       differentiators: "Your hackathon leadership + open-source ML repo aligns well.",
+      progress: 35,
+      progressNotes: "Essay draft 2 in review. Need 2 more recommendation letters.",
     },
     {
       id: "u2",
@@ -187,6 +207,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       coreVision: "Academic excellence with global perspective.",
       ecBiases: "Strong academics + meaningful service.",
       differentiators: "Your Teach For Change service is a clear fit.",
+      progress: 55,
     },
     {
       id: "u3",
@@ -199,6 +220,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       coreVision: "Progress and Service.",
       ecBiases: "Builders, tinkerers, engineering doers.",
       differentiators: "Your capstone project demonstrates exactly this ethos.",
+      progress: 70,
     },
     {
       id: "u4",
@@ -211,14 +233,26 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       coreVision: "Interdisciplinary thinkers across CS + psychology.",
       ecBiases: "Cross-domain projects, research curiosity.",
       differentiators: "Your Cog Sci interest + tutoring shows breadth.",
+      progress: 20,
     },
   ]);
 
+  const [batches, setBatches] = useState<Batch[]>([]);
+
+  const [contacts, setContacts] = useState<Contact[]>([
+    { id: "c1", name: "Priya Menon", role: "Counselor", online: true, unread: 2 },
+    { id: "c2", name: "Rohan Iyer", role: "Mentor", online: true, unread: 0 },
+    { id: "c3", name: "Neha Kapoor", role: "Tutor", online: false, unread: 1 },
+    { id: "c4", name: "Admissions Desk", role: "Admin", online: false, unread: 0 },
+  ]);
+
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: "m1", from: "counselor", text: "Hey Aarav — uploaded notes from yesterday's session. Take a look!", at: "2026-05-26T10:14:00" },
-    { id: "m2", from: "student", text: "Thanks! Will review tonight.", at: "2026-05-26T10:16:00" },
-    { id: "m3", from: "counselor", text: "Also — let's finalize your ED school by Friday.", at: "2026-05-27T09:02:00" },
-    { id: "m4", from: "counselor", text: "Quick reminder: SAT Math sync Friday 3pm.", at: "2026-05-27T09:03:00" },
+    { id: "m1", contactId: "c1", from: "contact", text: "Hey Aarav — uploaded notes from yesterday's session.", at: "2026-05-26T10:14:00" },
+    { id: "m2", contactId: "c1", from: "student", text: "Thanks! Will review tonight.", at: "2026-05-26T10:16:00" },
+    { id: "m3", contactId: "c1", from: "contact", text: "Also — let's finalize your ED school by Friday.", at: "2026-05-27T09:02:00" },
+    { id: "m4", contactId: "c1", from: "contact", text: "Quick reminder: SAT Math sync Friday 3pm.", at: "2026-05-27T09:03:00" },
+    { id: "m5", contactId: "c2", from: "contact", text: "Got time this weekend for a mock interview?", at: "2026-05-25T14:00:00" },
+    { id: "m6", contactId: "c3", from: "contact", text: "Here's the algebra packet for next session.", at: "2026-05-24T09:00:00" },
   ]);
 
   const value: PortalState = useMemo(
@@ -229,8 +263,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       setProfile,
       documents,
       addDocument: (d) => setDocuments((xs) => [d, ...xs]),
+      updateDocument: (id, patch) =>
+        setDocuments((xs) => xs.map((d) => (d.id === id ? { ...d, ...patch } : d))),
       removeDocument: (id) => setDocuments((xs) => xs.filter((d) => d.id !== id)),
       tasks,
+      addTask: (t) => setTasks((xs) => [t, ...xs]),
+      updateTask: (id, patch) =>
+        setTasks((xs) => xs.map((t) => (t.id === id ? { ...t, ...patch } : t))),
+      deleteTask: (id) => setTasks((xs) => xs.filter((t) => t.id !== id)),
       setTaskStatus: (id, status) =>
         setTasks((xs) => xs.map((t) => (t.id === id ? { ...t, status } : t))),
       uploadTaskFile: (id, fileName) => {
@@ -252,6 +292,9 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         }
       },
       events,
+      addEvent: (e) => setEvents((es) => [...es, e]),
+      updateEvent: (id, patch) =>
+        setEvents((es) => es.map((e) => (e.id === id ? { ...e, ...patch } : e))),
       uploadEventAssignment: (id, fileName) => {
         setEvents((es) =>
           es.map((e) =>
@@ -267,15 +310,52 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         );
       },
       universities,
+      addUniversity: (u) => setUniversities((xs) => [...xs, u]),
+      updateUniversity: (id, patch) =>
+        setUniversities((xs) => xs.map((u) => (u.id === id ? { ...u, ...patch } : u))),
+      batches,
+      createBatch: (b) => {
+        setBatches((xs) => [...xs, b]);
+        // Generate ScheduleEvents from batch recurrence
+        const generated: ScheduleEvent[] = [];
+        const start = new Date(b.startDate);
+        const end = new Date(b.endDate);
+        const [sh, sm] = b.startTime.split(":").map(Number);
+        const [eh, em] = b.endTime.split(":").map(Number);
+        let i = 0;
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          if (b.weekdays.includes(d.getDay())) {
+            const s = new Date(d);
+            s.setHours(sh, sm, 0, 0);
+            const e2 = new Date(d);
+            e2.setHours(eh, em, 0, 0);
+            const point = b.discussionPoints[i % Math.max(b.discussionPoints.length, 1)] || "";
+            generated.push({
+              id: `${b.id}-${i}`,
+              batchId: b.id,
+              type: b.type,
+              title: `${b.name}${point ? " — " + point : ""}`,
+              start: s.toISOString(),
+              end: e2.toISOString(),
+              meetingLink: b.meetingLink,
+              status: s.getTime() > Date.now() ? "Upcoming" : "Completed",
+              agenda: point ? [point] : [],
+            });
+            i++;
+          }
+        }
+        setEvents((es) => [...es, ...generated]);
+      },
+      contacts,
       messages,
-      sendMessage: (text) =>
+      sendMessage: (contactId, text) =>
         setMessages((ms) => [
           ...ms,
-          { id: `m${Date.now()}`, from: "student", text, at: new Date().toISOString() },
+          { id: `m${Date.now()}`, contactId, from: "student", text, at: new Date().toISOString() },
         ]),
-      unreadMessages: 2,
+      unreadMessages: contacts.reduce((acc, c) => acc + (c.unread || 0), 0),
     }),
-    [profile, documents, tasks, events, universities, messages],
+    [profile, documents, tasks, events, batches, universities, contacts, messages],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
