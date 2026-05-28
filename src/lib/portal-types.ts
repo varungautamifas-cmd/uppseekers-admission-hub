@@ -6,9 +6,18 @@ export type TabKey =
   | "universities"
   | "messages";
 
+export const DEFAULT_ACTIVITY_CATEGORIES = [
+  "Leadership",
+  "Community Service",
+  "Super-Curricular",
+  "Sports",
+  "Arts",
+  "Competition/Honor",
+] as const;
+
 export type Activity = {
   id: string;
-  category: "Leadership" | "Community Service" | "Super-Curricular" | "Sports" | "Arts";
+  category: string; // free-form; allows "Other" custom value
   title: string;
   timeline: string;
   description: string;
@@ -28,10 +37,22 @@ export type Profile = {
   indianExams: string;
   budget: string;
   activities: Activity[];
+  personalMeetingLink?: string;
 };
 
-export type DocStatus = "Pending" | "Under Review" | "Verified" | "Rejected";
-export type DocType = "Academic Transcript" | "Essay" | "Resume" | "Identity";
+export const DOC_STATUSES = ["Pending", "Under Review", "Verified", "Rejected"] as const;
+export type DocStatus = (typeof DOC_STATUSES)[number];
+export const DOC_TYPES = [
+  "Academic Transcript",
+  "Essay",
+  "Resume",
+  "Identity",
+  "Test Score Report",
+  "Recommendation Letter",
+  "Financial Document",
+  "Other",
+] as const;
+export type DocType = (typeof DOC_TYPES)[number];
 
 export type StudentDocument = {
   id: string;
@@ -43,7 +64,17 @@ export type StudentDocument = {
 };
 
 export type TaskStatus = "todo" | "inprogress" | "completed";
-export type TaskCategory = "Documentation" | "Test Prep" | "Research";
+export const TASK_CATEGORIES = [
+  "Documentation",
+  "Test Prep",
+  "Research",
+  "Essay",
+  "Application",
+  "Other",
+] as const;
+export type TaskCategory = (typeof TASK_CATEGORIES)[number];
+
+export type TaskNote = { id: string; text: string; at: string };
 
 export type StudentTask = {
   id: string;
@@ -51,10 +82,13 @@ export type StudentTask = {
   description: string;
   category: TaskCategory;
   dueDate: string; // ISO
+  createdAt: string; // ISO
   status: TaskStatus;
   syncedFromScheduleId?: string;
   requiresUpload?: boolean;
   uploadedFile?: string;
+  attachments?: string[];
+  notes?: TaskNote[];
   progress?: number;
 };
 
@@ -74,6 +108,24 @@ export type ScheduleEvent = {
     fileName?: string;
   };
   status: "Upcoming" | "Completed";
+  notes?: TaskNote[];
+  attachments?: string[];
+  reminderMinutes?: number;
+  rating?: number; // 1-5 post-event
+  batchId?: string;
+};
+
+export type Batch = {
+  id: string;
+  name: string;
+  type: EventType;
+  weekdays: number[]; // 0=Sun..6=Sat
+  startTime: string; // HH:MM
+  endTime: string; // HH:MM
+  startDate: string; // ISO date
+  endDate: string; // ISO date
+  discussionPoints: string[]; // per-session points (cycled)
+  meetingLink?: string;
 };
 
 export type Difficulty = "Reach" | "Target" | "Safety";
@@ -89,13 +141,25 @@ export type University = {
   coreVision: string;
   ecBiases: string;
   differentiators: string;
+  progress?: number; // 0-100
+  progressNotes?: string;
 };
 
 export type ChatMessage = {
   id: string;
-  from: "student" | "counselor";
+  contactId: string;
+  from: "student" | "contact";
   text: string;
   at: string; // ISO
+};
+
+export type ContactRole = "Counselor" | "Mentor" | "Admin" | "Tutor";
+export type Contact = {
+  id: string;
+  name: string;
+  role: ContactRole;
+  online: boolean;
+  unread?: number;
 };
 
 export type Student = {
