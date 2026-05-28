@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { usePortal } from "@/lib/portal-store";
 import type { Activity } from "@/lib/portal-types";
+import { DEFAULT_ACTIVITY_CATEGORIES } from "@/lib/portal-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,16 +23,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { MultiSelectCountries } from "@/components/portal/MultiSelectCountries";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { ExternalLink, Pencil, Plus, Trash2, Video } from "lucide-react";
 import { toast } from "sonner";
 
-const CATEGORIES: Activity["category"][] = [
-  "Leadership",
-  "Community Service",
-  "Super-Curricular",
-  "Sports",
-  "Arts",
-];
+const CATEGORIES = [...DEFAULT_ACTIVITY_CATEGORIES, "Other"] as const;
 
 const BUDGETS = [
   "Need partial scholarship (Budget: $20k-$30k/yr)",
@@ -46,6 +41,17 @@ export function ProfileOverview() {
   const [draft, setDraft] = useState(profile);
   const [editing, setEditing] = useState<Activity | null>(null);
   const [open, setOpen] = useState(false);
+  const [customCat, setCustomCat] = useState("");
+
+  const isCustom = useMemo(
+    () =>
+      !!editing &&
+      !DEFAULT_ACTIVITY_CATEGORIES.includes(
+        editing.category as (typeof DEFAULT_ACTIVITY_CATEGORIES)[number],
+      ) &&
+      editing.category !== "",
+    [editing],
+  );
 
   const update = <K extends keyof typeof draft>(k: K, v: (typeof draft)[K]) =>
     setDraft((d) => ({ ...d, [k]: v }));
@@ -57,10 +63,18 @@ export function ProfileOverview() {
 
   const openAdd = () => {
     setEditing({ id: `a${Date.now()}`, category: "Leadership", title: "", timeline: "", description: "" });
+    setCustomCat("");
     setOpen(true);
   };
   const openEdit = (a: Activity) => {
     setEditing({ ...a });
+    setCustomCat(
+      DEFAULT_ACTIVITY_CATEGORIES.includes(
+        a.category as (typeof DEFAULT_ACTIVITY_CATEGORIES)[number],
+      )
+        ? ""
+        : a.category,
+    );
     setOpen(true);
   };
   const removeActivity = (id: string) =>
@@ -68,13 +82,18 @@ export function ProfileOverview() {
 
   const saveActivity = () => {
     if (!editing) return;
+    const finalCat =
+      editing.category === "__other__" || isCustom
+        ? customCat.trim() || "Other"
+        : editing.category;
+    const toSave: Activity = { ...editing, category: finalCat };
     setDraft((d) => {
-      const exists = d.activities.some((a) => a.id === editing.id);
+      const exists = d.activities.some((a) => a.id === toSave.id);
       return {
         ...d,
         activities: exists
-          ? d.activities.map((a) => (a.id === editing.id ? editing : a))
-          : [...d.activities, editing],
+          ? d.activities.map((a) => (a.id === toSave.id ? toSave : a))
+          : [...d.activities, toSave],
       };
     });
     setOpen(false);
@@ -203,6 +222,35 @@ export function ProfileOverview() {
       </Card>
 
       <Card>
+        <CardHeader>
+          <CardTitle>Personal Meeting Room</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+          <div>
+            <Label>Your Meeting Link (Zoom / Meet / Teams)</Label>
+            <Input
+              value={draft.personalMeetingLink ?? ""}
+              onChange={(e) => update("personalMeetingLink", e.target.value)}
+              placeholder="https://meet.google.com/your-room"
+              className="mt-1.5"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Counselor & mentors will use this to start a quick meeting with you.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!draft.personalMeetingLink}
+            onClick={() => window.open(draft.personalMeetingLink, "_blank")}
+          >
+            <Video className="mr-1 h-4 w-4" /> Start Meeting
+            <ExternalLink className="ml-1 h-3 w-3" />
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>My Activities Log</CardTitle>
           <Dialog open={open} onOpenChange={setOpen}>
@@ -224,10 +272,21 @@ export function ProfileOverview() {
                   <div>
                     <Label>Category</Label>
                     <Select
-                      value={editing.category}
-                      onValueChange={(v) =>
-                        setEditing({ ...editing, category: v as Activity["category"] })
+                      value={
+                        DEFAULT_ACTIVITY_CATEGORIES.includes(
+                          editing.category as (typeof DEFAULT_ACTIVITY_CATEGORIES)[number],
+                        )
+                          ? editing.category
+                          : "Other"
                       }
+                      onValueChange={(v) => {
+                        if (v === "Other") {
+                          setEditing({ ...editing, category: customCat || "Other" });
+                        } else {
+                          setCustomCat("");
+                          setEditing({ ...editing, category: v });
+                        }
+                      }}
                     >
                       <SelectTrigger className="mt-1.5">
                         <SelectValue />
@@ -240,6 +299,20 @@ export function ProfileOverview() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {(isCustom ||
+                      !DEFAULT_ACTIVITY_CATEGORIES.includes(
+                        editing.category as (typeof DEFAULT_ACTIVITY_CATEGORIES)[number],
+                      )) && (
+                      <Input
+                        value={customCat}
+                        onChange={(e) => {
+                          setCustomCat(e.target.value);
+                          setEditing({ ...editing, category: e.target.value || "Other" });
+                        }}
+                        placeholder="Custom category (e.g., Research, Internship)"
+                        className="mt-2"
+                      />
+                    )}
                   </div>
                   <div>
                     <Label>Title / Role</Label>
