@@ -1,8 +1,25 @@
 import { useRef, useState } from "react";
 import { usePortal } from "@/lib/portal-store";
-import type { DocStatus, StudentDocument } from "@/lib/portal-types";
+import type { DocStatus, DocType, StudentDocument } from "@/lib/portal-types";
+import { DOC_STATUSES, DOC_TYPES } from "@/lib/portal-types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -35,13 +52,23 @@ function ExtIcon({ ext }: { ext: StudentDocument["ext"] }) {
 }
 
 export function Documents() {
-  const { documents, addDocument, removeDocument } = usePortal();
+  const { documents, addDocument, removeDocument, updateDocument } = usePortal();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [pending, setPending] = useState<File[] | null>(null);
+  const [pendingType, setPendingType] = useState<DocType>("Essay");
+  const [pendingStatus, setPendingStatus] = useState<DocStatus>("Pending");
 
   const handleFiles = (files: FileList | null) => {
-    if (!files) return;
-    Array.from(files).forEach((f) => {
+    if (!files || files.length === 0) return;
+    setPending(Array.from(files));
+    setPendingType("Essay");
+    setPendingStatus("Pending");
+  };
+
+  const confirmUpload = () => {
+    if (!pending) return;
+    pending.forEach((f) => {
       const ext = f.name.split(".").pop()?.toLowerCase();
       const safeExt: StudentDocument["ext"] =
         ext === "pdf" ? "pdf" : ext === "docx" || ext === "doc" ? "docx" : ext === "png" ? "png" : "jpg";
@@ -49,12 +76,13 @@ export function Documents() {
         id: `d${Date.now()}-${f.name}`,
         name: f.name,
         ext: safeExt,
-        type: "Essay",
-        status: "Pending",
+        type: pendingType,
+        status: pendingStatus,
         modified: new Date().toISOString().slice(0, 10),
       });
     });
-    toast.success(`${files.length} file(s) uploaded`);
+    toast.success(`${pending.length} file(s) uploaded`);
+    setPending(null);
   };
 
   return (
@@ -115,16 +143,46 @@ export function Documents() {
                       <span className="font-medium">{d.name}</span>
                     </div>
                   </TableCell>
-                  <TableCell>{d.type}</TableCell>
                   <TableCell>
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
-                        statusClass(d.status),
-                      )}
+                    <Select
+                      value={d.type}
+                      onValueChange={(v) => updateDocument(d.id, { type: v as DocType })}
                     >
-                      {d.status}
-                    </span>
+                      <SelectTrigger className="h-8 w-[180px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DOC_TYPES.map((t) => (
+                          <SelectItem key={t} value={t}>
+                            {t}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={d.status}
+                      onValueChange={(v) =>
+                        updateDocument(d.id, { status: v as DocStatus })
+                      }
+                    >
+                      <SelectTrigger
+                        className={cn(
+                          "h-8 w-[140px] border",
+                          statusClass(d.status),
+                        )}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DOC_STATUSES.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell>{d.modified}</TableCell>
                   <TableCell className="text-right">
@@ -146,6 +204,65 @@ export function Documents() {
           </Table>
         </div>
       </Card>
+
+      <Dialog open={!!pending} onOpenChange={(o) => !o && setPending(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Classify Upload</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div>
+              <Label>Files</Label>
+              <Input
+                readOnly
+                value={(pending ?? []).map((f) => f.name).join(", ")}
+                className="mt-1.5 bg-muted"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Document Type</Label>
+                <Select value={pendingType} onValueChange={(v) => setPendingType(v as DocType)}>
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DOC_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Status</Label>
+                <Select
+                  value={pendingStatus}
+                  onValueChange={(v) => setPendingStatus(v as DocStatus)}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DOC_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPending(null)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmUpload}>Upload</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
