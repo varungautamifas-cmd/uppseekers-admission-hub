@@ -33,6 +33,7 @@ type PortalState = {
   uploadEventAssignment: (id: string, fileName: string) => void;
   batches: Batch[];
   createBatch: (b: Batch) => void;
+  updateBatch: (id: string, patch: Partial<Batch>) => void;
   universities: University[];
   addUniversity: (u: University) => void;
   updateUniversity: (id: string, patch: Partial<University>) => void;
