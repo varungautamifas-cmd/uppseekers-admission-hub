@@ -268,59 +268,122 @@ function ProgressDialog({
   onClose: () => void;
   onUpdate: (patch: Partial<University>) => void;
 }) {
-  const [progress, setProgress] = useState(university?.progress ?? 0);
-  const [notes, setNotes] = useState(university?.progressNotes ?? "");
+  const [form, setForm] = useState<Partial<University>>({});
 
   if (!university) return null;
+
+  const current: Partial<University> = { ...university, ...form };
+  const computed = computeUniversityProgress(current);
+  const set = (patch: Partial<University>) => setForm((f) => ({ ...f, ...patch }));
+  const toggleTranscript = (g: string) => {
+    const list = current.transcripts ?? [];
+    set({ transcripts: list.includes(g) ? list.filter((x) => x !== g) : [...list, g] });
+  };
 
   return (
     <Dialog
       open={!!university}
       onOpenChange={(o) => {
         if (!o) onClose();
-        else {
-          setProgress(university.progress ?? 0);
-          setNotes(university.progressNotes ?? "");
-        }
+        else setForm({});
       }}
     >
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{university.name} — Preparation</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4">
+        <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <Label>Progress: {progress}%</Label>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={progress}
-              onChange={(e) => setProgress(Number(e.target.value))}
-              className="mt-2 w-full"
-            />
-            <Progress value={progress} className="mt-2 h-1.5" />
+            <Label>Essay</Label>
+            <Select value={current.essayStatus ?? "Not Started Yet"}
+              onValueChange={(v) => set({ essayStatus: v as EssayStatus })}>
+              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {ESSAY_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div>
-            <Label>Preparation Notes</Label>
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={5}
-              className="mt-1.5"
-              placeholder="Essay status, recommender outreach, test scores ready, supplements done…"
-            />
+            <Label>Supplementary Essay</Label>
+            <Select value={current.suppEssayStatus ?? "Not Started Yet"}
+              onValueChange={(v) => set({ suppEssayStatus: v as EssayStatus })}>
+              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {ESSAY_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Internships</Label>
+            <Select value={String(current.internshipsCount ?? 0)}
+              onValueChange={(v) => set({ internshipsCount: Number(v) as 0 | 1 | 2 | 3 })}>
+              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {[0, 1, 2, 3].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Research Paper</Label>
+            <Select value={current.researchPaperStatus ?? "Not Writing"}
+              onValueChange={(v) => set({ researchPaperStatus: v as ResearchPaperStatus })}>
+              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {RESEARCH_PAPER_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="md:col-span-2">
+            <Label>Transcripts Uploaded</Label>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {TRANSCRIPT_GRADES.map((g) => {
+                const checked = (current.transcripts ?? []).includes(g);
+                return (
+                  <label key={g} className={cn(
+                    "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium",
+                    checked ? "border-primary bg-primary/10" : "bg-background hover:bg-accent",
+                  )}>
+                    <input type="checkbox" checked={checked} onChange={() => toggleTranscript(g)} />
+                    {g}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+          {(["lor1", "lor2", "lor3"] as const).map((k, i) => (
+            <div key={k}>
+              <Label>LOR {i + 1}</Label>
+              <Select value={current[k] ?? "Not Uploaded"}
+                onValueChange={(v) => set({ [k]: v as LorStatus } as Partial<University>)}>
+                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {LOR_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          ))}
+          <div className="md:col-span-2">
+            <Label>Notes</Label>
+            <Textarea value={current.progressNotes ?? ""}
+              onChange={(e) => set({ progressNotes: e.target.value })}
+              rows={4} className="mt-1.5"
+              placeholder="Essay status, recommender outreach, test scores ready, supplements done…" />
+          </div>
+          <div className="md:col-span-2">
+            <div className="mb-1 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <span>Auto-Calculated Progress</span>
+              <span>{computed}%</span>
+            </div>
+            <Progress value={computed} className="h-2" />
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button
-            onClick={() => {
-              onUpdate({ progress, progressNotes: notes });
-              toast.success("Progress updated");
-              onClose();
-            }}
-          >
+          <Button onClick={() => {
+            onUpdate({ ...form, progress: computed });
+            toast.success(`Progress updated — ${computed}%`);
+            onClose();
+          }}>
             Save
           </Button>
         </DialogFooter>
