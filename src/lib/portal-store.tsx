@@ -267,6 +267,27 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     { id: "m6", contactId: "c3", from: "contact", text: "Here's the algebra packet for next session.", at: "2026-05-24T09:00:00" },
   ]);
 
+  const teamContacts: Contact[] = useMemo(() => {
+    const t = profile.team;
+    if (!t) return [];
+    const entries: { key: string; email: string; role: Contact["role"]; label: string }[] = [
+      { key: "team-counselor", email: t.counselorEmail, role: "Counselor", label: "Counselor" },
+      { key: "team-math", email: t.mathMentorEmail, role: "Mentor", label: "Math Mentor" },
+      { key: "team-verbal", email: t.verbalMentorEmail, role: "Mentor", label: "Verbal Mentor" },
+      { key: "team-research", email: t.researchMentorEmail, role: "Mentor", label: "Research Mentor" },
+      { key: "team-cm", email: t.categoryManagerEmail, role: "Admin", label: "Category Manager" },
+    ];
+    return entries
+      .filter((e) => e.email && e.email.trim())
+      .map((e) => ({
+        id: e.key,
+        name: `${e.label} (${e.email})`,
+        role: e.role,
+        online: false,
+        unread: 0,
+      }));
+  }, [profile.team]);
+
   const value: PortalState = useMemo(
     () => ({
       student: { name: "Aarav Sharma", grade: "Grade 11" },
