@@ -487,19 +487,22 @@ function TaskDetailDialog({
   onUpdate: (patch: Partial<StudentTask>) => void;
 }) {
   const [noteText, setNoteText] = useState("");
+  const [noteFile, setNoteFile] = useState<string | null>(null);
+  const noteFileRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   if (!task) return null;
 
   const addNote = () => {
     const text = noteText.trim();
-    if (!text) return;
+    if (!text && !noteFile) return;
     onUpdate({
       notes: [
         ...(task.notes ?? []),
-        { id: `n${Date.now()}`, text, at: new Date().toISOString() },
+        { id: `n${Date.now()}`, text: text || "(file attached)", at: new Date().toISOString(), fileName: noteFile ?? undefined },
       ],
     });
     setNoteText("");
+    setNoteFile(null);
   };
 
   return (
