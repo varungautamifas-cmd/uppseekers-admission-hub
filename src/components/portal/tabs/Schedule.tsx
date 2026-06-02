@@ -625,15 +625,30 @@ function EventDetailDialog({
               {(event.notes ?? []).map((n) => (
                 <div key={n.id} className="rounded-md border bg-muted/40 p-2 text-sm">
                   <p>{n.text}</p>
+                  {n.fileName && (
+                    <div className="mt-1 inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">
+                      <Paperclip className="h-3 w-3" /> {n.fileName}
+                    </div>
+                  )}
                   <div className="mt-1 text-[10px] text-muted-foreground">
                     {new Date(n.at).toLocaleString()}
                   </div>
                 </div>
               ))}
             </div>
-            <div className="mt-2 flex gap-2">
+            <div className="mt-2 space-y-2">
               <Textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} rows={2} placeholder="Add a note…" />
-              <Button onClick={addNote} disabled={!noteText.trim()}>Add</Button>
+              <div className="flex items-center gap-2">
+                <input ref={noteFileRef} type="file" className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) setNoteFile(f.name); }} />
+                <Button variant="outline" size="sm" onClick={() => noteFileRef.current?.click()}>
+                  <Paperclip className="mr-1 h-3.5 w-3.5" /> {noteFile ? noteFile : "Attach file"}
+                </Button>
+                {noteFile && (
+                  <Button variant="ghost" size="sm" onClick={() => setNoteFile(null)}>Clear</Button>
+                )}
+                <Button className="ml-auto" onClick={addNote} disabled={!noteText.trim() && !noteFile}>Add Note</Button>
+              </div>
             </div>
           </div>
 
