@@ -527,6 +527,8 @@ function EventDetailDialog({
   onUpdate: (patch: Partial<ScheduleEvent>) => void;
 }) {
   const [noteText, setNoteText] = useState("");
+  const [noteFile, setNoteFile] = useState<string | null>(null);
+  const noteFileRef = useRef<HTMLInputElement>(null);
   const [link, setLink] = useState("");
   const [reminder, setReminder] = useState<string>("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -536,14 +538,15 @@ function EventDetailDialog({
 
   const addNote = () => {
     const text = noteText.trim();
-    if (!text) return;
+    if (!text && !noteFile) return;
     onUpdate({
       notes: [
         ...(event.notes ?? []),
-        { id: `n${Date.now()}`, text, at: new Date().toISOString() },
+        { id: `n${Date.now()}`, text: text || "(file attached)", at: new Date().toISOString(), fileName: noteFile ?? undefined },
       ],
     });
     setNoteText("");
+    setNoteFile(null);
   };
 
   return (
