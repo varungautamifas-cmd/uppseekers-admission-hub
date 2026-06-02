@@ -358,6 +358,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         }
         setEvents((es) => [...es, ...generated]);
       },
+      updateBatch: (id, patch) =>
+        setBatches((xs) => xs.map((b) => (b.id === id ? { ...b, ...patch } : b))),
       contacts,
       messages,
       sendMessage: (contactId, text) =>
