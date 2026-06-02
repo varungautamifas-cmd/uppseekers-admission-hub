@@ -22,6 +22,15 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { Difficulty, University } from "@/lib/portal-types";
+import {
+  ESSAY_STATUSES,
+  RESEARCH_PAPER_STATUSES,
+  LOR_STATUSES,
+  TRANSCRIPT_GRADES,
+  type EssayStatus,
+  type LorStatus,
+  type ResearchPaperStatus,
+} from "@/lib/portal-types";
 import { CalendarClock, MapPin, Plus } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,6 +40,35 @@ function difficultyClass(d: Difficulty) {
     : d === "Target"
       ? "bg-amber-100 text-amber-700 border-amber-200"
       : "bg-emerald-100 text-emerald-700 border-emerald-200";
+}
+
+function essayScore(s?: EssayStatus): number {
+  const m: Record<EssayStatus, number> = {
+    "Not Started Yet": 0, "Working": 33, "1st Draft Ready": 66, "Done": 100,
+  };
+  return s ? m[s] : 0;
+}
+function researchScore(s?: ResearchPaperStatus): number {
+  const m: Record<ResearchPaperStatus, number> = {
+    "Not Writing": 0, "Working": 25, "1st Draft Ready": 50,
+    "Prepared and Reviewed": 75, "Published": 100,
+  };
+  return s ? m[s] : 0;
+}
+function lorScore(s?: LorStatus): number { return s === "Uploaded" ? 100 : 0; }
+
+export function computeUniversityProgress(u: Partial<University>): number {
+  const parts = [
+    essayScore(u.essayStatus),
+    essayScore(u.suppEssayStatus),
+    ((u.internshipsCount ?? 0) / 3) * 100,
+    researchScore(u.researchPaperStatus),
+    ((u.transcripts?.length ?? 0) / TRANSCRIPT_GRADES.length) * 100,
+    lorScore(u.lor1),
+    lorScore(u.lor2),
+    lorScore(u.lor3),
+  ];
+  return Math.round(parts.reduce((a, b) => a + b, 0) / parts.length);
 }
 
 export function Universities() {
