@@ -22,15 +22,6 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { Difficulty, University } from "@/lib/portal-types";
-import {
-  ESSAY_STATUSES,
-  RESEARCH_PAPER_STATUSES,
-  LOR_STATUSES,
-  TRANSCRIPT_GRADES,
-  type EssayStatus,
-  type LorStatus,
-  type ResearchPaperStatus,
-} from "@/lib/portal-types";
 import { CalendarClock, MapPin, Plus } from "lucide-react";
 import { toast } from "sonner";
 
@@ -40,35 +31,6 @@ function difficultyClass(d: Difficulty) {
     : d === "Target"
       ? "bg-amber-100 text-amber-700 border-amber-200"
       : "bg-emerald-100 text-emerald-700 border-emerald-200";
-}
-
-function essayScore(s?: EssayStatus): number {
-  const m: Record<EssayStatus, number> = {
-    "Not Started Yet": 0, "Working": 33, "1st Draft Ready": 66, "Done": 100,
-  };
-  return s ? m[s] : 0;
-}
-function researchScore(s?: ResearchPaperStatus): number {
-  const m: Record<ResearchPaperStatus, number> = {
-    "Not Writing": 0, "Working": 25, "1st Draft Ready": 50,
-    "Prepared and Reviewed": 75, "Published": 100,
-  };
-  return s ? m[s] : 0;
-}
-function lorScore(s?: LorStatus): number { return s === "Uploaded" ? 100 : 0; }
-
-export function computeUniversityProgress(u: Partial<University>): number {
-  const parts = [
-    essayScore(u.essayStatus),
-    essayScore(u.suppEssayStatus),
-    ((u.internshipsCount ?? 0) / 3) * 100,
-    researchScore(u.researchPaperStatus),
-    ((u.transcripts?.length ?? 0) / TRANSCRIPT_GRADES.length) * 100,
-    lorScore(u.lor1),
-    lorScore(u.lor2),
-    lorScore(u.lor3),
-  ];
-  return Math.round(parts.reduce((a, b) => a + b, 0) / parts.length);
 }
 
 export function Universities() {
@@ -268,122 +230,59 @@ function ProgressDialog({
   onClose: () => void;
   onUpdate: (patch: Partial<University>) => void;
 }) {
-  const [form, setForm] = useState<Partial<University>>({});
+  const [progress, setProgress] = useState(university?.progress ?? 0);
+  const [notes, setNotes] = useState(university?.progressNotes ?? "");
 
   if (!university) return null;
-
-  const current: Partial<University> = { ...university, ...form };
-  const computed = computeUniversityProgress(current);
-  const set = (patch: Partial<University>) => setForm((f) => ({ ...f, ...patch }));
-  const toggleTranscript = (g: string) => {
-    const list = current.transcripts ?? [];
-    set({ transcripts: list.includes(g) ? list.filter((x) => x !== g) : [...list, g] });
-  };
 
   return (
     <Dialog
       open={!!university}
       onOpenChange={(o) => {
         if (!o) onClose();
-        else setForm({});
+        else {
+          setProgress(university.progress ?? 0);
+          setNotes(university.progressNotes ?? "");
+        }
       }}
     >
-      <DialogContent className="max-w-2xl">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{university.name} — Preparation</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4">
           <div>
-            <Label>Essay</Label>
-            <Select value={current.essayStatus ?? "Not Started Yet"}
-              onValueChange={(v) => set({ essayStatus: v as EssayStatus })}>
-              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {ESSAY_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Supplementary Essay</Label>
-            <Select value={current.suppEssayStatus ?? "Not Started Yet"}
-              onValueChange={(v) => set({ suppEssayStatus: v as EssayStatus })}>
-              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {ESSAY_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <Label>Progress: {progress}%</Label>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={progress}
+              onChange={(e) => setProgress(Number(e.target.value))}
+              className="mt-2 w-full"
+            />
+            <Progress value={progress} className="mt-2 h-1.5" />
           </div>
           <div>
-            <Label>Internships</Label>
-            <Select value={String(current.internshipsCount ?? 0)}
-              onValueChange={(v) => set({ internshipsCount: Number(v) as 0 | 1 | 2 | 3 })}>
-              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {[0, 1, 2, 3].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Research Paper</Label>
-            <Select value={current.researchPaperStatus ?? "Not Writing"}
-              onValueChange={(v) => set({ researchPaperStatus: v as ResearchPaperStatus })}>
-              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {RESEARCH_PAPER_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="md:col-span-2">
-            <Label>Transcripts Uploaded</Label>
-            <div className="mt-1.5 flex flex-wrap gap-2">
-              {TRANSCRIPT_GRADES.map((g) => {
-                const checked = (current.transcripts ?? []).includes(g);
-                return (
-                  <label key={g} className={cn(
-                    "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium",
-                    checked ? "border-primary bg-primary/10" : "bg-background hover:bg-accent",
-                  )}>
-                    <input type="checkbox" checked={checked} onChange={() => toggleTranscript(g)} />
-                    {g}
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-          {(["lor1", "lor2", "lor3"] as const).map((k, i) => (
-            <div key={k}>
-              <Label>LOR {i + 1}</Label>
-              <Select value={current[k] ?? "Not Uploaded"}
-                onValueChange={(v) => set({ [k]: v as LorStatus } as Partial<University>)}>
-                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {LOR_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          ))}
-          <div className="md:col-span-2">
-            <Label>Notes</Label>
-            <Textarea value={current.progressNotes ?? ""}
-              onChange={(e) => set({ progressNotes: e.target.value })}
-              rows={4} className="mt-1.5"
-              placeholder="Essay status, recommender outreach, test scores ready, supplements done…" />
-          </div>
-          <div className="md:col-span-2">
-            <div className="mb-1 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <span>Auto-Calculated Progress</span>
-              <span>{computed}%</span>
-            </div>
-            <Progress value={computed} className="h-2" />
+            <Label>Preparation Notes</Label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={5}
+              className="mt-1.5"
+              placeholder="Essay status, recommender outreach, test scores ready, supplements done…"
+            />
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => {
-            onUpdate({ ...form, progress: computed });
-            toast.success(`Progress updated — ${computed}%`);
-            onClose();
-          }}>
+          <Button
+            onClick={() => {
+              onUpdate({ progress, progressNotes: notes });
+              toast.success("Progress updated");
+              onClose();
+            }}
+          >
             Save
           </Button>
         </DialogFooter>

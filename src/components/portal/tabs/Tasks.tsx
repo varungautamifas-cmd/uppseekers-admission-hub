@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { CalendarDays, Check, Link2, MessageSquarePlus, Paperclip, Pencil, Plus, UploadCloud, X } from "lucide-react";
+import { CalendarDays, Link2, MessageSquarePlus, Paperclip, Plus, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 
 const COLUMNS: { key: TaskStatus; label: string }[] = [
@@ -57,26 +57,19 @@ export function Tasks() {
 
   // Filters
   const [fCategory, setFCategory] = useState<string>("All");
-  const [fCreatedBy, setFCreatedBy] = useState<string>("All");
   const [fCreatedFrom, setFCreatedFrom] = useState("");
   const [fDueFrom, setFDueFrom] = useState("");
   const [fDueTo, setFDueTo] = useState("");
 
-  const creators = useMemo(
-    () => Array.from(new Set(tasks.map((t) => t.createdBy).filter(Boolean) as string[])),
-    [tasks],
-  );
-
   const filtered = useMemo(() => {
     return tasks.filter((t) => {
       if (fCategory !== "All" && t.category !== fCategory) return false;
-      if (fCreatedBy !== "All" && t.createdBy !== fCreatedBy) return false;
       if (fCreatedFrom && new Date(t.createdAt) < new Date(fCreatedFrom)) return false;
       if (fDueFrom && new Date(t.dueDate) < new Date(fDueFrom)) return false;
       if (fDueTo && new Date(t.dueDate) > new Date(fDueTo)) return false;
       return true;
     });
-  }, [tasks, fCategory, fCreatedBy, fCreatedFrom, fDueFrom, fDueTo]);
+  }, [tasks, fCategory, fCreatedFrom, fDueFrom, fDueTo]);
 
   const detail = detailId ? tasks.find((t) => t.id === detailId) ?? null : null;
 
@@ -96,20 +89,6 @@ export function Tasks() {
                 <SelectItem key={c} value={c}>
                   {c}
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label className="text-[11px]">Created To</Label>
-          <Select value={fCreatedBy} onValueChange={setFCreatedBy}>
-            <SelectTrigger className="mt-1 h-8 w-[150px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="All">All Users</SelectItem>
-              {creators.map((c) => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -146,7 +125,6 @@ export function Tasks() {
           size="sm"
           onClick={() => {
             setFCategory("All");
-            setFCreatedBy("All");
             setFCreatedFrom("");
             setFDueFrom("");
             setFDueTo("");
@@ -187,7 +165,6 @@ export function Tasks() {
                   task={t}
                   onDragStart={() => setDragId(t.id)}
                   onOpen={() => setDetailId(t.id)}
-                  onSave={(patch) => updateTask(t.id, patch)}
                   onUpload={(name) => {
                     uploadTaskFile(t.id, name);
                     toast.success(`Uploaded "${name}". Task moved to Completed.`);
@@ -226,61 +203,23 @@ function TaskCard({
   task,
   onDragStart,
   onOpen,
-  onSave,
   onUpload,
 }: {
   task: StudentTask;
   onDragStart: () => void;
   onOpen: () => void;
-  onSave: (patch: Partial<StudentTask>) => void;
   onUpload: (fileName: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [edit, setEdit] = useState(false);
-  const [draft, setDraft] = useState({
-    title: task.title,
-    description: task.description,
-    category: task.category,
-    dueDate: task.dueDate,
-  });
   const overdue =
     task.status !== "completed" && new Date(task.dueDate).getTime() < Date.now();
-
-  if (edit) {
-    return (
-      <Card className="space-y-2 p-3">
-        <Input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-          className="h-8" placeholder="Title" />
-        <Textarea value={draft.description}
-          onChange={(e) => setDraft({ ...draft, description: e.target.value })} rows={2} />
-        <div className="grid grid-cols-2 gap-2">
-          <Select value={draft.category} onValueChange={(v) => setDraft({ ...draft, category: v as TaskCategory })}>
-            <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {TASK_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Input type="date" className="h-8" value={draft.dueDate.slice(0, 10)}
-            onChange={(e) => setDraft({ ...draft, dueDate: e.target.value })} />
-        </div>
-        <div className="flex gap-2">
-          <Button size="sm" className="flex-1" onClick={() => { onSave(draft); setEdit(false); toast.success("Task updated"); }}>
-            <Check className="mr-1 h-3.5 w-3.5" /> Save
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setEdit(false)}>
-            <X className="mr-1 h-3.5 w-3.5" /> Cancel
-          </Button>
-        </div>
-      </Card>
-    );
-  }
 
   return (
     <Card
       draggable
       onDragStart={onDragStart}
       onDoubleClick={onOpen}
-      className="group cursor-grab space-y-2 p-3 active:cursor-grabbing"
+      className="cursor-grab space-y-2 p-3 active:cursor-grabbing"
       title="Double-click for notes & files"
     >
       <div className="flex flex-wrap items-center gap-1.5">
@@ -307,13 +246,6 @@ function TaskCard({
             <Paperclip className="h-3 w-3" /> {task.attachments!.length}
           </span>
         )}
-        <button
-          className="ml-auto rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100"
-          onClick={(e) => { e.stopPropagation(); setEdit(true); }}
-          aria-label="Edit task"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
       </div>
       <div className="font-medium leading-snug">{task.title}</div>
       <p className="text-xs text-muted-foreground">{task.description}</p>
@@ -462,7 +394,6 @@ function CreateTaskDialog({
                 category,
                 dueDate,
                 createdAt: new Date().toISOString().slice(0, 10),
-                createdBy: "Aarav Sharma",
                 status: "todo",
                 requiresUpload,
               });
@@ -488,22 +419,19 @@ function TaskDetailDialog({
   onUpdate: (patch: Partial<StudentTask>) => void;
 }) {
   const [noteText, setNoteText] = useState("");
-  const [noteFile, setNoteFile] = useState<string | null>(null);
-  const noteFileRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   if (!task) return null;
 
   const addNote = () => {
     const text = noteText.trim();
-    if (!text && !noteFile) return;
+    if (!text) return;
     onUpdate({
       notes: [
         ...(task.notes ?? []),
-        { id: `n${Date.now()}`, text: text || "(file attached)", at: new Date().toISOString(), fileName: noteFile ?? undefined },
+        { id: `n${Date.now()}`, text, at: new Date().toISOString() },
       ],
     });
     setNoteText("");
-    setNoteFile(null);
   };
 
   return (
@@ -535,28 +463,22 @@ function TaskDetailDialog({
               {(task.notes ?? []).map((n) => (
                 <div key={n.id} className="rounded-md border bg-muted/40 p-2 text-sm">
                   <p>{n.text}</p>
-                  {n.fileName && (
-                    <div className="mt-1 inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">
-                      <Paperclip className="h-3 w-3" /> {n.fileName}
-                    </div>
-                  )}
                   <div className="mt-1 text-[10px] text-muted-foreground">
                     {new Date(n.at).toLocaleString()}
                   </div>
                 </div>
               ))}
             </div>
-            <div className="mt-2 space-y-2">
-              <Textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} rows={2} placeholder="Add a note…" />
-              <div className="flex items-center gap-2">
-                <input ref={noteFileRef} type="file" className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) setNoteFile(f.name); }} />
-                <Button variant="outline" size="sm" onClick={() => noteFileRef.current?.click()}>
-                  <Paperclip className="mr-1 h-3.5 w-3.5" /> {noteFile ? noteFile : "Attach file"}
-                </Button>
-                {noteFile && <Button variant="ghost" size="sm" onClick={() => setNoteFile(null)}>Clear</Button>}
-                <Button className="ml-auto" onClick={addNote} disabled={!noteText.trim() && !noteFile}>Add Note</Button>
-              </div>
+            <div className="mt-2 flex gap-2">
+              <Textarea
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                rows={2}
+                placeholder="Add a note…"
+              />
+              <Button onClick={addNote} disabled={!noteText.trim()}>
+                Add
+              </Button>
             </div>
           </div>
 

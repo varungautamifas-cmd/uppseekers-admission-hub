@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { usePortal } from "@/lib/portal-store";
-import type { Activity, ActivityCategory, TeamEmails } from "@/lib/portal-types";
+import type { Activity } from "@/lib/portal-types";
 import { DEFAULT_ACTIVITY_CATEGORIES } from "@/lib/portal-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,9 +23,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { MultiSelectCountries } from "@/components/portal/MultiSelectCountries";
-import { cn } from "@/lib/utils";
 import { ExternalLink, Pencil, Plus, Trash2, Video } from "lucide-react";
 import { toast } from "sonner";
+
+const CATEGORIES = [...DEFAULT_ACTIVITY_CATEGORIES, "Other"] as const;
 
 const BUDGETS = [
   "Need partial scholarship (Budget: $20k-$30k/yr)",
@@ -34,50 +35,46 @@ const BUDGETS = [
 ];
 
 const GRADES = ["Grade 9", "Grade 10", "Grade 11", "Grade 12", "Gap Year"] as const;
-const ACTIVITY_GRADES = ["8", "9", "10", "11", "12"];
-
-const emptyTeam: TeamEmails = {
-  counselorEmail: "",
-  mathMentorEmail: "",
-  verbalMentorEmail: "",
-  researchMentorEmail: "",
-  categoryManagerEmail: "",
-};
-
-const newActivity = (): Activity => ({
-  id: `a${Date.now()}`,
-  name: "",
-  category: "Individual",
-  grades: [],
-  hoursPerWeek: 0,
-  weeksPerYear: 0,
-  description: "",
-});
 
 export function ProfileOverview() {
   const { profile, setProfile } = usePortal();
   const [draft, setDraft] = useState(profile);
   const [editing, setEditing] = useState<Activity | null>(null);
   const [open, setOpen] = useState(false);
+  const [customCat, setCustomCat] = useState("");
+
+  const isCustom = useMemo(
+    () =>
+      !!editing &&
+      !DEFAULT_ACTIVITY_CATEGORIES.includes(
+        editing.category as (typeof DEFAULT_ACTIVITY_CATEGORIES)[number],
+      ) &&
+      editing.category !== "",
+    [editing],
+  );
 
   const update = <K extends keyof typeof draft>(k: K, v: (typeof draft)[K]) =>
     setDraft((d) => ({ ...d, [k]: v }));
 
-  const team: TeamEmails = draft.team ?? emptyTeam;
-  const updateTeam = (k: keyof TeamEmails, v: string) =>
-    setDraft((d) => ({ ...d, team: { ...(d.team ?? emptyTeam), [k]: v } }));
-
   const onSave = () => {
     setProfile(draft);
-    toast.success("Profile updated. Team contacts synced to Messages.");
+    toast.success("Profile updated. Counselor notified — Spider chart will refresh.");
   };
 
   const openAdd = () => {
-    setEditing(newActivity());
+    setEditing({ id: `a${Date.now()}`, category: "Leadership", title: "", timeline: "", description: "" });
+    setCustomCat("");
     setOpen(true);
   };
   const openEdit = (a: Activity) => {
     setEditing({ ...a });
+    setCustomCat(
+      DEFAULT_ACTIVITY_CATEGORIES.includes(
+        a.category as (typeof DEFAULT_ACTIVITY_CATEGORIES)[number],
+      )
+        ? ""
+        : a.category,
+    );
     setOpen(true);
   };
   const removeActivity = (id: string) =>
@@ -85,30 +82,30 @@ export function ProfileOverview() {
 
   const saveActivity = () => {
     if (!editing) return;
+    const finalCat =
+      editing.category === "__other__" || isCustom
+        ? customCat.trim() || "Other"
+        : editing.category;
+    const toSave: Activity = { ...editing, category: finalCat };
     setDraft((d) => {
-      const exists = d.activities.some((a) => a.id === editing.id);
+      const exists = d.activities.some((a) => a.id === toSave.id);
       return {
         ...d,
         activities: exists
-          ? d.activities.map((a) => (a.id === editing.id ? editing : a))
-          : [...d.activities, editing],
+          ? d.activities.map((a) => (a.id === toSave.id ? toSave : a))
+          : [...d.activities, toSave],
       };
     });
     setOpen(false);
     setEditing(null);
   };
 
-  const toggleGrade = (g: string) =>
-    setEditing((e) =>
-      !e
-        ? e
-        : { ...e, grades: e.grades.includes(g) ? e.grades.filter((x) => x !== g) : [...e.grades, g] },
-    );
-
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader><CardTitle>Basic Details</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Basic Details</CardTitle>
+        </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
           <div>
             <Label>Full Name</Label>
@@ -116,14 +113,24 @@ export function ProfileOverview() {
           </div>
           <div>
             <Label>Current School</Label>
-            <Input value={draft.school} onChange={(e) => update("school", e.target.value)} className="mt-1.5" />
+            <Input
+              value={draft.school}
+              onChange={(e) => update("school", e.target.value)}
+              className="mt-1.5"
+            />
           </div>
           <div>
             <Label>Current Grade / Year</Label>
             <Select value={draft.grade} onValueChange={(v) => update("grade", v as typeof draft.grade)}>
-              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="mt-1.5">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                {GRADES.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                {GRADES.map((g) => (
+                  <SelectItem key={g} value={g}>
+                    {g}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -131,45 +138,83 @@ export function ProfileOverview() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Academic Performance</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Academic Performance</CardTitle>
+        </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
           <NumField label="Grade 9 Score (%)" value={draft.grade9} onChange={(v) => update("grade9", v)} />
           <NumField label="Grade 10 Score (%)" value={draft.grade10} onChange={(v) => update("grade10", v)} />
-          <NumField label="Expected Grade 11/12 (%)" value={draft.expectedGrade} onChange={(v) => update("expectedGrade", v)} />
+          <NumField
+            label="Expected Grade 11/12 (%)"
+            value={draft.expectedGrade}
+            onChange={(v) => update("expectedGrade", v)}
+          />
           <div>
             <Label>SAT/ACT Score</Label>
-            <Input value={draft.satAct} onChange={(e) => update("satAct", e.target.value)} className="mt-1.5" />
+            <Input
+              value={draft.satAct}
+              onChange={(e) => update("satAct", e.target.value)}
+              className="mt-1.5"
+              placeholder="e.g., SAT 1480"
+            />
           </div>
           <div>
             <Label>English Proficiency</Label>
-            <Input value={draft.english} onChange={(e) => update("english", e.target.value)} className="mt-1.5" />
+            <Input
+              value={draft.english}
+              onChange={(e) => update("english", e.target.value)}
+              className="mt-1.5"
+              placeholder="e.g., TOEFL 110"
+            />
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Aspirations & Targets</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Aspirations & Targets</CardTitle>
+        </CardHeader>
         <CardContent className="grid gap-4">
           <div>
             <Label>Target Geographies (max 3)</Label>
             <div className="mt-1.5">
-              <MultiSelectCountries value={draft.geographies} onChange={(v) => update("geographies", v)} />
+              <MultiSelectCountries
+                value={draft.geographies}
+                onChange={(v) => update("geographies", v)}
+              />
             </div>
           </div>
           <div>
             <Label>Intended Majors / Fields of Study</Label>
-            <Textarea value={draft.majors} onChange={(e) => update("majors", e.target.value)} className="mt-1.5" rows={3} />
+            <Textarea
+              value={draft.majors}
+              onChange={(e) => update("majors", e.target.value)}
+              className="mt-1.5"
+              rows={3}
+            />
           </div>
           <div>
             <Label>Targeting Indian Entrance Exams?</Label>
-            <Textarea value={draft.indianExams} onChange={(e) => update("indianExams", e.target.value)} className="mt-1.5" rows={3} />
+            <Textarea
+              value={draft.indianExams}
+              onChange={(e) => update("indianExams", e.target.value)}
+              className="mt-1.5"
+              rows={3}
+              placeholder="JEE, CUET, BITSAT details…"
+            />
           </div>
           <div>
             <Label>Financial Budget / Requirement</Label>
             <Select value={draft.budget} onValueChange={(v) => update("budget", v)}>
-              <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="mt-1.5">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                {BUDGETS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                {BUDGETS.map((b) => (
+                  <SelectItem key={b} value={b}>
+                    {b}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -177,42 +222,31 @@ export function ProfileOverview() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Personal Meeting Room</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Personal Meeting Room</CardTitle>
+        </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
           <div>
-            <Label>Your Meeting Link</Label>
+            <Label>Your Meeting Link (Zoom / Meet / Teams)</Label>
             <Input
               value={draft.personalMeetingLink ?? ""}
               onChange={(e) => update("personalMeetingLink", e.target.value)}
               placeholder="https://meet.google.com/your-room"
               className="mt-1.5"
             />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Counselor & mentors will use this to start a quick meeting with you.
+            </p>
           </div>
-          <Button type="button" variant="outline" disabled={!draft.personalMeetingLink}
-            onClick={() => window.open(draft.personalMeetingLink, "_blank")}>
-            <Video className="mr-1 h-4 w-4" /> Start <ExternalLink className="ml-1 h-3 w-3" />
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!draft.personalMeetingLink}
+            onClick={() => window.open(draft.personalMeetingLink, "_blank")}
+          >
+            <Video className="mr-1 h-4 w-4" /> Start Meeting
+            <ExternalLink className="ml-1 h-3 w-3" />
           </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Assigned Team</CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Saved emails will appear as contacts in Messages.
-          </p>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
-          <EmailField label="Counselor Email Id" value={team.counselorEmail}
-            onChange={(v) => updateTeam("counselorEmail", v)} />
-          <EmailField label="Math's Mentor email id" value={team.mathMentorEmail}
-            onChange={(v) => updateTeam("mathMentorEmail", v)} />
-          <EmailField label="Verbal's Mentor email id" value={team.verbalMentorEmail}
-            onChange={(v) => updateTeam("verbalMentorEmail", v)} />
-          <EmailField label="Research Mentor email id" value={team.researchMentorEmail}
-            onChange={(v) => updateTeam("researchMentorEmail", v)} />
-          <EmailField label="Category Manager email id" value={team.categoryManagerEmail}
-            onChange={(v) => updateTeam("categoryManagerEmail", v)} />
         </CardContent>
       </Card>
 
@@ -221,73 +255,101 @@ export function ProfileOverview() {
           <CardTitle>My Activities Log</CardTitle>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" onClick={openAdd}><Plus className="mr-1 h-4 w-4" /> Add Activity</Button>
+              <Button size="sm" onClick={openAdd}>
+                <Plus className="mr-1 h-4 w-4" /> Add Activity
+              </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-xl">
+            <DialogContent>
               <DialogHeader>
                 <DialogTitle>
-                  {editing && draft.activities.some((a) => a.id === editing.id) ? "Edit Activity" : "Add Activity"}
+                  {editing && draft.activities.some((a) => a.id === editing.id)
+                    ? "Edit Activity"
+                    : "Add Activity"}
                 </DialogTitle>
               </DialogHeader>
               {editing && (
                 <div className="grid gap-3">
                   <div>
-                    <Label>Activity Name</Label>
-                    <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} className="mt-1.5" />
-                  </div>
-                  <div>
                     <Label>Category</Label>
-                    <Select value={editing.category}
-                      onValueChange={(v) => setEditing({ ...editing, category: v as ActivityCategory })}>
-                      <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                    <Select
+                      value={
+                        DEFAULT_ACTIVITY_CATEGORIES.includes(
+                          editing.category as (typeof DEFAULT_ACTIVITY_CATEGORIES)[number],
+                        )
+                          ? editing.category
+                          : "Other"
+                      }
+                      onValueChange={(v) => {
+                        if (v === "Other") {
+                          setEditing({ ...editing, category: customCat || "Other" });
+                        } else {
+                          setCustomCat("");
+                          setEditing({ ...editing, category: v });
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="mt-1.5">
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
-                        {DEFAULT_ACTIVITY_CATEGORIES.map((c) => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        {CATEGORIES.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    {(isCustom ||
+                      !DEFAULT_ACTIVITY_CATEGORIES.includes(
+                        editing.category as (typeof DEFAULT_ACTIVITY_CATEGORIES)[number],
+                      )) && (
+                      <Input
+                        value={customCat}
+                        onChange={(e) => {
+                          setCustomCat(e.target.value);
+                          setEditing({ ...editing, category: e.target.value || "Other" });
+                        }}
+                        placeholder="Custom category (e.g., Research, Internship)"
+                        className="mt-2"
+                      />
+                    )}
                   </div>
                   <div>
-                    <Label>Grades</Label>
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {ACTIVITY_GRADES.map((g) => (
-                        <button key={g} type="button" onClick={() => toggleGrade(g)}
-                          className={cn(
-                            "rounded-md border px-3 py-1.5 text-xs font-medium",
-                            editing.grades.includes(g)
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "bg-background hover:bg-accent",
-                          )}>
-                          {g}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Hours / Week</Label>
-                      <Input type="number" min={0} value={editing.hoursPerWeek}
-                        onChange={(e) => setEditing({ ...editing, hoursPerWeek: Number(e.target.value) })}
-                        className="mt-1.5" />
-                    </div>
-                    <div>
-                      <Label>Weeks / Year</Label>
-                      <Input type="number" min={0} max={52} value={editing.weeksPerYear}
-                        onChange={(e) => setEditing({ ...editing, weeksPerYear: Number(e.target.value) })}
-                        className="mt-1.5" />
-                    </div>
+                    <Label>Title / Role</Label>
+                    <Input
+                      value={editing.title}
+                      onChange={(e) => setEditing({ ...editing, title: e.target.value })}
+                      placeholder="e.g., President, Coding Club"
+                      className="mt-1.5"
+                    />
                   </div>
                   <div>
-                    <Label>Describe what you did and the impact</Label>
-                    <Textarea value={editing.description}
+                    <Label>Timeline</Label>
+                    <Input
+                      value={editing.timeline}
+                      onChange={(e) => setEditing({ ...editing, timeline: e.target.value })}
+                      placeholder="e.g., Grade 10, 11 | 4 hrs/week"
+                      className="mt-1.5"
+                    />
+                  </div>
+                  <div>
+                    <Label>Description</Label>
+                    <Textarea
+                      value={editing.description}
                       onChange={(e) => setEditing({ ...editing, description: e.target.value })}
-                      rows={4} className="mt-1.5" />
+                      rows={3}
+                      className="mt-1.5"
+                    />
                   </div>
                 </div>
               )}
               <DialogFooter>
-                <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button onClick={saveActivity} disabled={!editing?.name}>Save Activity</Button>
+                <Button variant="outline" onClick={() => setOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={saveActivity} disabled={!editing?.title}>
+                  Save Activity
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -297,18 +359,17 @@ export function ProfileOverview() {
             <p className="text-sm text-muted-foreground">No activities logged yet.</p>
           )}
           {draft.activities.map((a) => (
-            <div key={a.id} className="group flex items-start gap-3 rounded-md border bg-card p-3 transition-shadow hover:shadow-sm">
+            <div
+              key={a.id}
+              className="group flex items-start gap-3 rounded-md border bg-card p-3 transition-shadow hover:shadow-sm"
+            >
               <div className="flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
                     {a.category}
                   </span>
-                  <span className="font-medium">{a.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {a.grades.length > 0 && `Grades ${a.grades.join(", ")}`}
-                    {a.hoursPerWeek ? ` · ${a.hoursPerWeek} hrs/wk` : ""}
-                    {a.weeksPerYear ? ` · ${a.weeksPerYear} wks/yr` : ""}
-                  </span>
+                  <span className="font-medium">{a.title}</span>
+                  <span className="text-xs text-muted-foreground">{a.timeline}</span>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">{a.description}</p>
               </div>
@@ -316,7 +377,12 @@ export function ProfileOverview() {
                 <Button size="icon" variant="ghost" onClick={() => openEdit(a)} aria-label="Edit">
                   <Pencil className="h-4 w-4" />
                 </Button>
-                <Button size="icon" variant="ghost" onClick={() => removeActivity(a.id)} aria-label="Delete">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => removeActivity(a.id)}
+                  aria-label="Delete"
+                >
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
@@ -326,28 +392,34 @@ export function ProfileOverview() {
       </Card>
 
       <div className="flex justify-end">
-        <Button size="lg" onClick={onSave}>Save Updates</Button>
+        <Button size="lg" onClick={onSave}>
+          Save Updates
+        </Button>
       </div>
     </div>
   );
 }
 
-function NumField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function NumField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
   return (
     <div>
       <Label>{label}</Label>
-      <Input type="number" min={0} max={100} value={value}
-        onChange={(e) => onChange(e.target.value)} className="mt-1.5" />
-    </div>
-  );
-}
-
-function EmailField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <div>
-      <Label>{label}</Label>
-      <Input type="email" value={value} onChange={(e) => onChange(e.target.value)}
-        placeholder="name@example.com" className="mt-1.5" />
+      <Input
+        type="number"
+        min={0}
+        max={100}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1.5"
+      />
     </div>
   );
 }
