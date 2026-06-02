@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-const FILTERS: ("All" | EventType)[] = ["All", "Counselling", "Test Prep", "Profile Building"];
+const FILTERS: ("All" | EventType)[] = ["All", "Counselling", "Test Prep", "Profile Building", "Research"];
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -42,15 +42,18 @@ function dotClass(t: EventType) {
     ? "bg-blue-500"
     : t === "Test Prep"
       ? "bg-purple-500"
-      : "bg-emerald-500";
+      : t === "Profile Building"
+        ? "bg-emerald-500"
+        : "bg-rose-500";
 }
 
 export function Schedule() {
-  const { events, uploadEventAssignment, updateEvent, createBatch } = usePortal();
+  const { events, uploadEventAssignment, updateEvent, createBatch, batches, updateBatch } = usePortal();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [batchOpen, setBatchOpen] = useState(false);
+  const [editBatchId, setEditBatchId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const list = useMemo(
@@ -138,11 +141,61 @@ export function Schedule() {
           toast.success(`Batch "${b.name}" created — sessions generated.`);
         }}
       />
+
+      {batches.length > 0 && (
+        <Card className="p-4">
+          <h3 className="mb-3 text-sm font-semibold">Manage Batches</h3>
+          <div className="space-y-2">
+            {batches.map((b) => (
+              <BatchRow key={b.id} batch={b} onUpdate={(patch) => updateBatch(b.id, patch)}
+                onEditFull={() => setEditBatchId(b.id)} />
+            ))}
+          </div>
+        </Card>
+      )}
+
+      <CreateBatchDialog
+        key={editBatchId ?? "new"}
+        open={!!editBatchId}
+        onOpenChange={(o) => !o && setEditBatchId(null)}
+        initial={batches.find((b) => b.id === editBatchId) ?? null}
+        onCreate={(b) => {
+          if (editBatchId) updateBatch(editBatchId, b);
+          setEditBatchId(null);
+          toast.success("Batch updated");
+        }}
+      />
+
       <EventDetailDialog
         event={detail}
         onClose={() => setDetailId(null)}
         onUpdate={(patch) => detail && updateEvent(detail.id, patch)}
       />
+    </div>
+  );
+}
+
+function BatchRow({ batch, onUpdate, onEditFull }: {
+  batch: Batch;
+  onUpdate: (patch: Partial<Batch>) => void;
+  onEditFull: () => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 items-center gap-2 rounded-md border p-2 md:grid-cols-[2fr_1fr_2fr_auto]">
+      <Input value={batch.name} onChange={(e) => onUpdate({ name: e.target.value })}
+        className="h-8" placeholder="Batch name" />
+      <Select value={batch.type} onValueChange={(v) => onUpdate({ type: v as EventType })}>
+        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="Counselling">Counselling</SelectItem>
+          <SelectItem value="Test Prep">Test Prep</SelectItem>
+          <SelectItem value="Profile Building">Profile Building</SelectItem>
+          <SelectItem value="Research">Research</SelectItem>
+        </SelectContent>
+      </Select>
+      <Input value={batch.meetingLink ?? ""} onChange={(e) => onUpdate({ meetingLink: e.target.value })}
+        className="h-8" placeholder="Meeting link" />
+      <Button size="sm" variant="outline" onClick={onEditFull}>Edit Full</Button>
     </div>
   );
 }
