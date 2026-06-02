@@ -187,6 +187,7 @@ export function Tasks() {
                   task={t}
                   onDragStart={() => setDragId(t.id)}
                   onOpen={() => setDetailId(t.id)}
+                  onSave={(patch) => updateTask(t.id, patch)}
                   onUpload={(name) => {
                     uploadTaskFile(t.id, name);
                     toast.success(`Uploaded "${name}". Task moved to Completed.`);
@@ -225,23 +226,61 @@ function TaskCard({
   task,
   onDragStart,
   onOpen,
+  onSave,
   onUpload,
 }: {
   task: StudentTask;
   onDragStart: () => void;
   onOpen: () => void;
+  onSave: (patch: Partial<StudentTask>) => void;
   onUpload: (fileName: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [edit, setEdit] = useState(false);
+  const [draft, setDraft] = useState({
+    title: task.title,
+    description: task.description,
+    category: task.category,
+    dueDate: task.dueDate,
+  });
   const overdue =
     task.status !== "completed" && new Date(task.dueDate).getTime() < Date.now();
+
+  if (edit) {
+    return (
+      <Card className="space-y-2 p-3">
+        <Input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+          className="h-8" placeholder="Title" />
+        <Textarea value={draft.description}
+          onChange={(e) => setDraft({ ...draft, description: e.target.value })} rows={2} />
+        <div className="grid grid-cols-2 gap-2">
+          <Select value={draft.category} onValueChange={(v) => setDraft({ ...draft, category: v as TaskCategory })}>
+            <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {TASK_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Input type="date" className="h-8" value={draft.dueDate.slice(0, 10)}
+            onChange={(e) => setDraft({ ...draft, dueDate: e.target.value })} />
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" className="flex-1" onClick={() => { onSave(draft); setEdit(false); toast.success("Task updated"); }}>
+            <Check className="mr-1 h-3.5 w-3.5" /> Save
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setEdit(false)}>
+            <X className="mr-1 h-3.5 w-3.5" /> Cancel
+          </Button>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card
       draggable
       onDragStart={onDragStart}
       onDoubleClick={onOpen}
-      className="cursor-grab space-y-2 p-3 active:cursor-grabbing"
+      className="group cursor-grab space-y-2 p-3 active:cursor-grabbing"
       title="Double-click for notes & files"
     >
       <div className="flex flex-wrap items-center gap-1.5">
@@ -268,6 +307,13 @@ function TaskCard({
             <Paperclip className="h-3 w-3" /> {task.attachments!.length}
           </span>
         )}
+        <button
+          className="ml-auto rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100"
+          onClick={(e) => { e.stopPropagation(); setEdit(true); }}
+          aria-label="Edit task"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
       </div>
       <div className="font-medium leading-snug">{task.title}</div>
       <p className="text-xs text-muted-foreground">{task.description}</p>
