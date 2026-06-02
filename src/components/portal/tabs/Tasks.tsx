@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { CalendarDays, Link2, MessageSquarePlus, Paperclip, Plus, UploadCloud } from "lucide-react";
+import { CalendarDays, Check, Link2, MessageSquarePlus, Paperclip, Pencil, Plus, UploadCloud, X } from "lucide-react";
 import { toast } from "sonner";
 
 const COLUMNS: { key: TaskStatus; label: string }[] = [
@@ -57,19 +57,26 @@ export function Tasks() {
 
   // Filters
   const [fCategory, setFCategory] = useState<string>("All");
+  const [fCreatedBy, setFCreatedBy] = useState<string>("All");
   const [fCreatedFrom, setFCreatedFrom] = useState("");
   const [fDueFrom, setFDueFrom] = useState("");
   const [fDueTo, setFDueTo] = useState("");
 
+  const creators = useMemo(
+    () => Array.from(new Set(tasks.map((t) => t.createdBy).filter(Boolean) as string[])),
+    [tasks],
+  );
+
   const filtered = useMemo(() => {
     return tasks.filter((t) => {
       if (fCategory !== "All" && t.category !== fCategory) return false;
+      if (fCreatedBy !== "All" && t.createdBy !== fCreatedBy) return false;
       if (fCreatedFrom && new Date(t.createdAt) < new Date(fCreatedFrom)) return false;
       if (fDueFrom && new Date(t.dueDate) < new Date(fDueFrom)) return false;
       if (fDueTo && new Date(t.dueDate) > new Date(fDueTo)) return false;
       return true;
     });
-  }, [tasks, fCategory, fCreatedFrom, fDueFrom, fDueTo]);
+  }, [tasks, fCategory, fCreatedBy, fCreatedFrom, fDueFrom, fDueTo]);
 
   const detail = detailId ? tasks.find((t) => t.id === detailId) ?? null : null;
 
@@ -89,6 +96,20 @@ export function Tasks() {
                 <SelectItem key={c} value={c}>
                   {c}
                 </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label className="text-[11px]">Created To</Label>
+          <Select value={fCreatedBy} onValueChange={setFCreatedBy}>
+            <SelectTrigger className="mt-1 h-8 w-[150px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="All">All Users</SelectItem>
+              {creators.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -125,6 +146,7 @@ export function Tasks() {
           size="sm"
           onClick={() => {
             setFCategory("All");
+            setFCreatedBy("All");
             setFCreatedFrom("");
             setFDueFrom("");
             setFDueTo("");
