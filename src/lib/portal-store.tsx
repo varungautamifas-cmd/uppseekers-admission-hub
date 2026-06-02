@@ -381,16 +381,18 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       },
       updateBatch: (id, patch) =>
         setBatches((xs) => xs.map((b) => (b.id === id ? { ...b, ...patch } : b))),
-      contacts,
+      contacts: [...contacts, ...teamContacts],
       messages,
       sendMessage: (contactId, text) =>
         setMessages((ms) => [
           ...ms,
           { id: `m${Date.now()}`, contactId, from: "student", text, at: new Date().toISOString() },
         ]),
-      unreadMessages: contacts.reduce((acc, c) => acc + (c.unread || 0), 0),
+      unreadMessages:
+        contacts.reduce((acc, c) => acc + (c.unread || 0), 0) +
+        teamContacts.reduce((acc, c) => acc + (c.unread || 0), 0),
     }),
-    [profile, documents, tasks, events, batches, universities, contacts, messages],
+    [profile, documents, tasks, events, batches, universities, contacts, messages, teamContacts],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
