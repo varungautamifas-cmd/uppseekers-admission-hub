@@ -384,20 +384,22 @@ function CreateBatchDialog({
   open,
   onOpenChange,
   onCreate,
+  initial,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onCreate: (b: Batch) => void;
+  initial?: Batch | null;
 }) {
-  const [name, setName] = useState("");
-  const [type, setType] = useState<EventType>("Test Prep");
-  const [weekdays, setWeekdays] = useState<number[]>([1, 3]); // Mon, Wed
-  const [startTime, setStartTime] = useState("15:00");
-  const [endTime, setEndTime] = useState("16:30");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [meetingLink, setMeetingLink] = useState("");
-  const [pointsText, setPointsText] = useState("");
+  const [name, setName] = useState(initial?.name ?? "");
+  const [type, setType] = useState<EventType>(initial?.type ?? "Test Prep");
+  const [weekdays, setWeekdays] = useState<number[]>(initial?.weekdays ?? [1, 3]);
+  const [startTime, setStartTime] = useState(initial?.startTime ?? "15:00");
+  const [endTime, setEndTime] = useState(initial?.endTime ?? "16:30");
+  const [startDate, setStartDate] = useState(initial?.startDate ?? "");
+  const [endDate, setEndDate] = useState(initial?.endDate ?? "");
+  const [meetingLink, setMeetingLink] = useState(initial?.meetingLink ?? "");
+  const [pointsText, setPointsText] = useState((initial?.discussionPoints ?? []).join("\n"));
 
   const reset = () => {
     setName(""); setType("Test Prep"); setWeekdays([1, 3]);
@@ -428,6 +430,7 @@ function CreateBatchDialog({
                   <SelectItem value="Counselling">Counselling</SelectItem>
                   <SelectItem value="Test Prep">Test Prep</SelectItem>
                   <SelectItem value="Profile Building">Profile Building</SelectItem>
+                  <SelectItem value="Research">Research</SelectItem>
                 </SelectContent>
               </Select>
             </div>
