@@ -462,6 +462,7 @@ function CreateTaskDialog({
                 category,
                 dueDate,
                 createdAt: new Date().toISOString().slice(0, 10),
+                createdBy: "Aarav Sharma",
                 status: "todo",
                 requiresUpload,
               });
