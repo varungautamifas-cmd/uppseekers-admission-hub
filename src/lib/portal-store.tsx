@@ -33,6 +33,7 @@ type PortalState = {
   uploadEventAssignment: (id: string, fileName: string) => void;
   batches: Batch[];
   createBatch: (b: Batch) => void;
+  updateBatch: (id: string, patch: Partial<Batch>) => void;
   universities: University[];
   addUniversity: (u: University) => void;
   updateUniversity: (id: string, patch: Partial<University>) => void;
@@ -71,19 +72,30 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     indianExams: "Targeting JEE Mains as a backup. CUET for Ashoka & Plaksha.",
     budget: "Need partial scholarship (Budget: $20k-$30k/yr)",
     personalMeetingLink: "https://meet.google.com/aarav-personal",
+    team: {
+      counselorEmail: "priya.menon@uppseekers.com",
+      mathMentorEmail: "",
+      verbalMentorEmail: "",
+      researchMentorEmail: "",
+      categoryManagerEmail: "",
+    },
     activities: [
       {
         id: "a1",
-        category: "Leadership",
-        title: "President, Coding Club",
-        timeline: "Grade 10, 11 | 4 hrs/week",
+        name: "President, Coding Club",
+        category: "Leadership/Captain",
+        grades: ["10", "11"],
+        hoursPerWeek: 4,
+        weeksPerYear: 40,
         description: "Led a 60-member club; organized 3 inter-school hackathons.",
       },
       {
         id: "a2",
-        category: "Community Service",
-        title: "Volunteer Tutor, Teach For Change",
-        timeline: "Grade 9–11 | 3 hrs/week",
+        name: "Volunteer Tutor, Teach For Change",
+        category: "Core Member",
+        grades: ["9", "10", "11"],
+        hoursPerWeek: 3,
+        weeksPerYear: 36,
         description: "Taught Math & English to underprivileged middle-schoolers.",
       },
     ],
@@ -255,6 +267,27 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     { id: "m6", contactId: "c3", from: "contact", text: "Here's the algebra packet for next session.", at: "2026-05-24T09:00:00" },
   ]);
 
+  const teamContacts: Contact[] = useMemo(() => {
+    const t = profile.team;
+    if (!t) return [];
+    const entries: { key: string; email: string; role: Contact["role"]; label: string }[] = [
+      { key: "team-counselor", email: t.counselorEmail, role: "Counselor", label: "Counselor" },
+      { key: "team-math", email: t.mathMentorEmail, role: "Mentor", label: "Math Mentor" },
+      { key: "team-verbal", email: t.verbalMentorEmail, role: "Mentor", label: "Verbal Mentor" },
+      { key: "team-research", email: t.researchMentorEmail, role: "Mentor", label: "Research Mentor" },
+      { key: "team-cm", email: t.categoryManagerEmail, role: "Admin", label: "Category Manager" },
+    ];
+    return entries
+      .filter((e) => e.email && e.email.trim())
+      .map((e) => ({
+        id: e.key,
+        name: `${e.label} (${e.email})`,
+        role: e.role,
+        online: false,
+        unread: 0,
+      }));
+  }, [profile.team]);
+
   const value: PortalState = useMemo(
     () => ({
       student: { name: "Aarav Sharma", grade: "Grade 11" },
@@ -346,16 +379,20 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         }
         setEvents((es) => [...es, ...generated]);
       },
-      contacts,
+      updateBatch: (id, patch) =>
+        setBatches((xs) => xs.map((b) => (b.id === id ? { ...b, ...patch } : b))),
+      contacts: [...contacts, ...teamContacts],
       messages,
       sendMessage: (contactId, text) =>
         setMessages((ms) => [
           ...ms,
           { id: `m${Date.now()}`, contactId, from: "student", text, at: new Date().toISOString() },
         ]),
-      unreadMessages: contacts.reduce((acc, c) => acc + (c.unread || 0), 0),
+      unreadMessages:
+        contacts.reduce((acc, c) => acc + (c.unread || 0), 0) +
+        teamContacts.reduce((acc, c) => acc + (c.unread || 0), 0),
     }),
-    [profile, documents, tasks, events, batches, universities, contacts, messages],
+    [profile, documents, tasks, events, batches, universities, contacts, messages, teamContacts],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

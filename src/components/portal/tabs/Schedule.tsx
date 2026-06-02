@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-const FILTERS: ("All" | EventType)[] = ["All", "Counselling", "Test Prep", "Profile Building"];
+const FILTERS: ("All" | EventType)[] = ["All", "Counselling", "Test Prep", "Profile Building", "Research"];
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -42,15 +42,18 @@ function dotClass(t: EventType) {
     ? "bg-blue-500"
     : t === "Test Prep"
       ? "bg-purple-500"
-      : "bg-emerald-500";
+      : t === "Profile Building"
+        ? "bg-emerald-500"
+        : "bg-rose-500";
 }
 
 export function Schedule() {
-  const { events, uploadEventAssignment, updateEvent, createBatch } = usePortal();
+  const { events, uploadEventAssignment, updateEvent, createBatch, batches, updateBatch } = usePortal();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [batchOpen, setBatchOpen] = useState(false);
+  const [editBatchId, setEditBatchId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const list = useMemo(
@@ -138,11 +141,61 @@ export function Schedule() {
           toast.success(`Batch "${b.name}" created — sessions generated.`);
         }}
       />
+
+      {batches.length > 0 && (
+        <Card className="p-4">
+          <h3 className="mb-3 text-sm font-semibold">Manage Batches</h3>
+          <div className="space-y-2">
+            {batches.map((b) => (
+              <BatchRow key={b.id} batch={b} onUpdate={(patch) => updateBatch(b.id, patch)}
+                onEditFull={() => setEditBatchId(b.id)} />
+            ))}
+          </div>
+        </Card>
+      )}
+
+      <CreateBatchDialog
+        key={editBatchId ?? "new"}
+        open={!!editBatchId}
+        onOpenChange={(o) => !o && setEditBatchId(null)}
+        initial={batches.find((b) => b.id === editBatchId) ?? null}
+        onCreate={(b) => {
+          if (editBatchId) updateBatch(editBatchId, b);
+          setEditBatchId(null);
+          toast.success("Batch updated");
+        }}
+      />
+
       <EventDetailDialog
         event={detail}
         onClose={() => setDetailId(null)}
         onUpdate={(patch) => detail && updateEvent(detail.id, patch)}
       />
+    </div>
+  );
+}
+
+function BatchRow({ batch, onUpdate, onEditFull }: {
+  batch: Batch;
+  onUpdate: (patch: Partial<Batch>) => void;
+  onEditFull: () => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 items-center gap-2 rounded-md border p-2 md:grid-cols-[2fr_1fr_2fr_auto]">
+      <Input value={batch.name} onChange={(e) => onUpdate({ name: e.target.value })}
+        className="h-8" placeholder="Batch name" />
+      <Select value={batch.type} onValueChange={(v) => onUpdate({ type: v as EventType })}>
+        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="Counselling">Counselling</SelectItem>
+          <SelectItem value="Test Prep">Test Prep</SelectItem>
+          <SelectItem value="Profile Building">Profile Building</SelectItem>
+          <SelectItem value="Research">Research</SelectItem>
+        </SelectContent>
+      </Select>
+      <Input value={batch.meetingLink ?? ""} onChange={(e) => onUpdate({ meetingLink: e.target.value })}
+        className="h-8" placeholder="Meeting link" />
+      <Button size="sm" variant="outline" onClick={onEditFull}>Edit Full</Button>
     </div>
   );
 }
@@ -331,20 +384,22 @@ function CreateBatchDialog({
   open,
   onOpenChange,
   onCreate,
+  initial,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onCreate: (b: Batch) => void;
+  initial?: Batch | null;
 }) {
-  const [name, setName] = useState("");
-  const [type, setType] = useState<EventType>("Test Prep");
-  const [weekdays, setWeekdays] = useState<number[]>([1, 3]); // Mon, Wed
-  const [startTime, setStartTime] = useState("15:00");
-  const [endTime, setEndTime] = useState("16:30");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [meetingLink, setMeetingLink] = useState("");
-  const [pointsText, setPointsText] = useState("");
+  const [name, setName] = useState(initial?.name ?? "");
+  const [type, setType] = useState<EventType>(initial?.type ?? "Test Prep");
+  const [weekdays, setWeekdays] = useState<number[]>(initial?.weekdays ?? [1, 3]);
+  const [startTime, setStartTime] = useState(initial?.startTime ?? "15:00");
+  const [endTime, setEndTime] = useState(initial?.endTime ?? "16:30");
+  const [startDate, setStartDate] = useState(initial?.startDate ?? "");
+  const [endDate, setEndDate] = useState(initial?.endDate ?? "");
+  const [meetingLink, setMeetingLink] = useState(initial?.meetingLink ?? "");
+  const [pointsText, setPointsText] = useState((initial?.discussionPoints ?? []).join("\n"));
 
   const reset = () => {
     setName(""); setType("Test Prep"); setWeekdays([1, 3]);
@@ -375,6 +430,7 @@ function CreateBatchDialog({
                   <SelectItem value="Counselling">Counselling</SelectItem>
                   <SelectItem value="Test Prep">Test Prep</SelectItem>
                   <SelectItem value="Profile Building">Profile Building</SelectItem>
+                  <SelectItem value="Research">Research</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -471,6 +527,8 @@ function EventDetailDialog({
   onUpdate: (patch: Partial<ScheduleEvent>) => void;
 }) {
   const [noteText, setNoteText] = useState("");
+  const [noteFile, setNoteFile] = useState<string | null>(null);
+  const noteFileRef = useRef<HTMLInputElement>(null);
   const [link, setLink] = useState("");
   const [reminder, setReminder] = useState<string>("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -480,14 +538,15 @@ function EventDetailDialog({
 
   const addNote = () => {
     const text = noteText.trim();
-    if (!text) return;
+    if (!text && !noteFile) return;
     onUpdate({
       notes: [
         ...(event.notes ?? []),
-        { id: `n${Date.now()}`, text, at: new Date().toISOString() },
+        { id: `n${Date.now()}`, text: text || "(file attached)", at: new Date().toISOString(), fileName: noteFile ?? undefined },
       ],
     });
     setNoteText("");
+    setNoteFile(null);
   };
 
   return (
@@ -566,15 +625,30 @@ function EventDetailDialog({
               {(event.notes ?? []).map((n) => (
                 <div key={n.id} className="rounded-md border bg-muted/40 p-2 text-sm">
                   <p>{n.text}</p>
+                  {n.fileName && (
+                    <div className="mt-1 inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">
+                      <Paperclip className="h-3 w-3" /> {n.fileName}
+                    </div>
+                  )}
                   <div className="mt-1 text-[10px] text-muted-foreground">
                     {new Date(n.at).toLocaleString()}
                   </div>
                 </div>
               ))}
             </div>
-            <div className="mt-2 flex gap-2">
+            <div className="mt-2 space-y-2">
               <Textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} rows={2} placeholder="Add a note…" />
-              <Button onClick={addNote} disabled={!noteText.trim()}>Add</Button>
+              <div className="flex items-center gap-2">
+                <input ref={noteFileRef} type="file" className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) setNoteFile(f.name); }} />
+                <Button variant="outline" size="sm" onClick={() => noteFileRef.current?.click()}>
+                  <Paperclip className="mr-1 h-3.5 w-3.5" /> {noteFile ? noteFile : "Attach file"}
+                </Button>
+                {noteFile && (
+                  <Button variant="ghost" size="sm" onClick={() => setNoteFile(null)}>Clear</Button>
+                )}
+                <Button className="ml-auto" onClick={addNote} disabled={!noteText.trim() && !noteFile}>Add Note</Button>
+              </div>
             </div>
           </div>
 
