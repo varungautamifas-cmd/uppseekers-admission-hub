@@ -8,6 +8,7 @@ import {
   CalendarClock,
   GraduationCap,
   MessageSquare,
+  Settings as SettingsIcon,
   X,
 } from "lucide-react";
 
@@ -26,6 +27,7 @@ export function getNavItems(unread: number): NavItem[] {
     { key: "schedule", label: "Schedule & Batches", icon: CalendarClock },
     { key: "universities", label: "Targeted Universities", icon: GraduationCap },
     { key: "messages", label: "Messages", icon: MessageSquare, badge: unread || undefined },
+    { key: "settings", label: "Settings", icon: SettingsIcon },
   ];
 }
 

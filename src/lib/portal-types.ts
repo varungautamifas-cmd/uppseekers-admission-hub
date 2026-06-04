@@ -4,7 +4,8 @@ export type TabKey =
   | "tasks"
   | "schedule"
   | "universities"
-  | "messages";
+  | "messages"
+  | "settings";
 
 export const DEFAULT_ACTIVITY_CATEGORIES = [
   "Individual",
