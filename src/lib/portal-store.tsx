@@ -57,8 +57,38 @@ const TOP_COUNTRIES = [
 
 export const COUNTRY_OPTIONS = TOP_COUNTRIES;
 
-export function PortalProvider({ children }: { children: ReactNode }) {
-  const [profile, setProfile] = useState<Profile>({
+export function PortalProvider({
+  children,
+  blank = false,
+  studentName,
+}: {
+  children: ReactNode;
+  blank?: boolean;
+  studentName?: string;
+}) {
+  const [profile, setProfile] = useState<Profile>(blank ? {
+    fullName: studentName ?? "",
+    school: "",
+    grade: "Grade 11",
+    grade9: "",
+    grade10: "",
+    expectedGrade: "",
+    satAct: "",
+    english: "",
+    geographies: [],
+    majors: "",
+    indianExams: "",
+    budget: "",
+    personalMeetingLink: "",
+    team: {
+      counselorEmail: "",
+      mathMentorEmail: "",
+      verbalMentorEmail: "",
+      researchMentorEmail: "",
+      categoryManagerEmail: "",
+    },
+    activities: [],
+  } : {
     fullName: "Aarav Sharma",
     school: "Delhi Public School, R.K. Puram",
     grade: "Grade 11",
@@ -101,14 +131,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     ],
   });
 
-  const [documents, setDocuments] = useState<StudentDocument[]>([
+  const [documents, setDocuments] = useState<StudentDocument[]>(blank ? [] : [
     { id: "d1", name: "Grade_10_Transcript.pdf", ext: "pdf", type: "Academic Transcript", status: "Verified", modified: "2026-04-12" },
     { id: "d2", name: "Common_App_Essay_Draft2.docx", ext: "docx", type: "Essay", status: "Under Review", modified: "2026-05-18" },
     { id: "d3", name: "Resume_v3.pdf", ext: "pdf", type: "Resume", status: "Pending", modified: "2026-05-20" },
     { id: "d4", name: "Passport_Scan.jpg", ext: "jpg", type: "Identity", status: "Verified", modified: "2026-03-02" },
   ]);
 
-  const [tasks, setTasks] = useState<StudentTask[]>([
+  const [tasks, setTasks] = useState<StudentTask[]>(blank ? [] : [
     {
       id: "t1",
       title: "Finalize Common App Essay",
@@ -153,7 +183,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     },
   ]);
 
-  const [events, setEvents] = useState<ScheduleEvent[]>([
+  const [events, setEvents] = useState<ScheduleEvent[]>(blank ? [] : [
     {
       id: "e1",
       type: "Test Prep",
@@ -193,7 +223,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     },
   ]);
 
-  const [universities, setUniversities] = useState<University[]>([
+  const [universities, setUniversities] = useState<University[]>(blank ? [] : [
     {
       id: "u1",
       name: "Carnegie Mellon University",
@@ -251,14 +281,14 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
   const [batches, setBatches] = useState<Batch[]>([]);
 
-  const [contacts, setContacts] = useState<Contact[]>([
+  const [contacts, setContacts] = useState<Contact[]>(blank ? [] : [
     { id: "c1", name: "Priya Menon", role: "Counselor", online: true, unread: 2 },
     { id: "c2", name: "Rohan Iyer", role: "Mentor", online: true, unread: 0 },
     { id: "c3", name: "Neha Kapoor", role: "Tutor", online: false, unread: 1 },
     { id: "c4", name: "Admissions Desk", role: "Admin", online: false, unread: 0 },
   ]);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([
+  const [messages, setMessages] = useState<ChatMessage[]>(blank ? [] : [
     { id: "m1", contactId: "c1", from: "contact", text: "Hey Aarav — uploaded notes from yesterday's session.", at: "2026-05-26T10:14:00" },
     { id: "m2", contactId: "c1", from: "student", text: "Thanks! Will review tonight.", at: "2026-05-26T10:16:00" },
     { id: "m3", contactId: "c1", from: "contact", text: "Also — let's finalize your ED school by Friday.", at: "2026-05-27T09:02:00" },
@@ -290,8 +320,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
   const value: PortalState = useMemo(
     () => ({
-      student: { name: "Aarav Sharma", grade: "Grade 11" },
-      counselor: { name: "Priya Menon", online: true },
+      student: { name: blank ? (studentName ?? "Student") : "Aarav Sharma", grade: blank ? "" : "Grade 11" },
+      counselor: { name: blank ? "" : "Priya Menon", online: !blank },
       profile,
       setProfile,
       documents,

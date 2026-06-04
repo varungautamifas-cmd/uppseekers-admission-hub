@@ -18,6 +18,7 @@ import { Card } from "@/components/ui/card";
 import { GraduationCap, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import type { TabKey } from "@/lib/portal-types";
+import { loadAccounts, loadCurrentUser, saveCurrentUser, type CurrentUser } from "@/lib/accounts-store";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -33,44 +34,48 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   return (
-    <AuthGate>
-      <PortalProvider>
-        <PortalShell />
-      </PortalProvider>
+    <AuthGate
+      render={(user) => (
+        <PortalProvider blank={!user.isAdmin} studentName={user.name}>
+          <PortalShell />
+        </PortalProvider>
+      )}
+    >
       <Toaster richColors position="top-right" />
     </AuthGate>
   );
 }
 
-const AUTH_KEY = "uppseekers_auth_v1";
 const ADMIN_EMAIL = "uppseekers@gmail.com";
 const ADMIN_PASSWORD = "123456";
 
-function AuthGate({ children }: { children: React.ReactNode }) {
+function AuthGate({
+  render,
+  children,
+}: {
+  render: (user: CurrentUser) => React.ReactNode;
+  children?: React.ReactNode;
+}) {
   const [ready, setReady] = useState(false);
-  const [authed, setAuthed] = useState(false);
+  const [user, setUser] = useState<CurrentUser | null>(null);
 
   useEffect(() => {
-    try {
-      setAuthed(typeof window !== "undefined" && localStorage.getItem(AUTH_KEY) === "1");
-    } catch {
-      setAuthed(false);
-    }
+    setUser(loadCurrentUser());
     setReady(true);
   }, []);
 
   const logout = () => {
-    try { localStorage.removeItem(AUTH_KEY); } catch {}
-    setAuthed(false);
+    saveCurrentUser(null);
+    setUser(null);
   };
 
   if (!ready) return null;
-  if (!authed) {
+  if (!user) {
     return (
       <LoginScreen
-        onSuccess={() => {
-          try { localStorage.setItem(AUTH_KEY, "1"); } catch {}
-          setAuthed(true);
+        onSuccess={(u) => {
+          saveCurrentUser(u);
+          setUser(u);
         }}
       />
     );
@@ -78,31 +83,43 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      {render(user)}
       {children}
-      <button
+      <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-md border bg-background px-3 py-1.5 text-xs shadow-sm">
+        <span className="text-muted-foreground">
+          {user.name} <span className="opacity-60">({user.role})</span>
+        </span>
+        <button
         onClick={logout}
-        className="fixed bottom-4 right-4 z-50 inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium shadow-sm hover:bg-accent"
+        className="inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 font-medium hover:bg-accent"
         title="Log out"
-      >
-        <LogOut className="h-3.5 w-3.5" /> Log out
-      </button>
+        >
+          <LogOut className="h-3.5 w-3.5" /> Log out
+        </button>
+      </div>
     </>
   );
 }
 
-function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
+function LoginScreen({ onSuccess }: { onSuccess: (u: CurrentUser) => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.trim().toLowerCase() === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-      toast.success("Welcome back!");
-      onSuccess();
-    } else {
-      setErr("Invalid email or password");
+    const em = email.trim().toLowerCase();
+    if (em === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+      toast.success("Welcome back, Admin!");
+      onSuccess({ email: ADMIN_EMAIL, name: "Administrator", role: "Admin", isAdmin: true });
+      return;
     }
+    const account = loadAccounts().find((a) => a.email.toLowerCase() === em);
+    if (!account) return setErr("No account found for this email");
+    if (account.status === "Suspended") return setErr("Account is suspended");
+    if (account.password !== password) return setErr("Invalid email or password");
+    toast.success(`Welcome, ${account.name}!`);
+    onSuccess({ email: account.email, name: account.name, role: account.role, isAdmin: false });
   };
 
   return (
@@ -128,6 +145,9 @@ function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
           </div>
           {err && <p className="text-xs text-destructive">{err}</p>}
           <Button type="submit" className="w-full">Sign In</Button>
+          <p className="pt-2 text-center text-[11px] text-muted-foreground">
+            New accounts are created by an Admin in Settings → Users & Accounts.
+          </p>
         </form>
       </Card>
     </div>
