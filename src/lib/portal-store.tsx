@@ -320,7 +320,7 @@ export function PortalProvider({
 
   const value: PortalState = useMemo(
     () => ({
-      student: { name: "Aarav Sharma", grade: "Grade 11" },
+      student: { name: blank ? (studentName ?? "Student") : "Aarav Sharma", grade: blank ? "" : "Grade 11" },
       counselor: { name: blank ? "" : "Priya Menon", online: !blank },
       profile,
       setProfile,
