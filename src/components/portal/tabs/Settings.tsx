@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Trash2, Plus, Pencil, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { usePortal } from "@/lib/portal-store";
+import { loadAccounts, saveAccounts, type StoredAccount } from "@/lib/accounts-store";
 
 type Role = "Admin" | "Manager" | "Counsellor" | "Mentor" | "Student";
 const ROLES: Role[] = ["Admin", "Manager", "Counsellor", "Mentor", "Student"];
@@ -67,14 +68,7 @@ function defaultMatrix(): AccessMatrix {
   };
 }
 
-type UserAccount = {
-  id: string;
-  name: string;
-  email: string;
-  role: Role;
-  status: "Active" | "Invited" | "Suspended";
-  createdAt: string;
-};
+type UserAccount = StoredAccount;
 
 type TabConfig = {
   key: string;
@@ -177,25 +171,34 @@ export function Settings() {
 
 /* ---------- Users ---------- */
 function UsersPanel() {
-  const [users, setUsers] = useState<UserAccount[]>([
-    { id: "u1", name: "Aarav Sharma", email: "aarav@student.com", role: "Student", status: "Active", createdAt: "2026-04-01" },
-    { id: "u2", name: "Priya Menon", email: "priya.menon@uppseekers.com", role: "Counsellor", status: "Active", createdAt: "2026-01-12" },
-    { id: "u3", name: "Rohan Iyer", email: "rohan@uppseekers.com", role: "Mentor", status: "Active", createdAt: "2026-02-22" },
-    { id: "u4", name: "Neha Kapoor", email: "neha@uppseekers.com", role: "Manager", status: "Invited", createdAt: "2026-05-01" },
-  ]);
+  const [users, setUsers] = useState<UserAccount[]>(() => {
+    const existing = loadAccounts();
+    if (existing.length) return existing;
+    const seed: UserAccount[] = [
+      { id: "u1", name: "Aarav Sharma", email: "aarav@student.com", role: "Student", status: "Active", password: "student123", createdAt: "2026-04-01" },
+      { id: "u2", name: "Priya Menon", email: "priya.menon@uppseekers.com", role: "Counsellor", status: "Active", password: "counsellor123", createdAt: "2026-01-12" },
+    ];
+    saveAccounts(seed);
+    return seed;
+  });
+  useEffect(() => { saveAccounts(users); }, [users]);
   const [form, setForm] = useState<Omit<UserAccount, "id" | "createdAt">>({
-    name: "", email: "", role: "Student", status: "Invited",
+    name: "", email: "", role: "Student", status: "Active", password: "",
   });
   const [filter, setFilter] = useState<Role | "All">("All");
 
   const add = () => {
     if (!form.name.trim() || !form.email.trim()) return toast.error("Name & email required");
+    if (!form.password || form.password.length < 4) return toast.error("Password must be at least 4 characters");
+    if (users.some((u) => u.email.toLowerCase() === form.email.trim().toLowerCase())) {
+      return toast.error("An account with this email already exists");
+    }
     setUsers((xs) => [
       { ...form, id: `u${Date.now()}`, createdAt: new Date().toISOString().slice(0, 10) },
       ...xs,
     ]);
-    setForm({ name: "", email: "", role: "Student", status: "Invited" });
-    toast.success("Account created");
+    setForm({ name: "", email: "", role: "Student", status: "Active", password: "" });
+    toast.success("Account created — user can now sign in");
   };
 
   const update = (id: string, patch: Partial<UserAccount>) =>
@@ -207,9 +210,10 @@ function UsersPanel() {
     <div className="space-y-4">
       <Card className="p-4">
         <div className="mb-3 text-sm font-semibold">Create Account</div>
-        <div className="grid gap-3 md:grid-cols-5">
+        <div className="grid gap-3 md:grid-cols-6">
           <div><Label className="text-xs">Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
           <div><Label className="text-xs">Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+          <div><Label className="text-xs">Password</Label><Input type="text" placeholder="min 4 chars" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></div>
           <div>
             <Label className="text-xs">Role</Label>
             <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as Role })}>
@@ -230,6 +234,9 @@ function UsersPanel() {
           </div>
           <div className="flex items-end"><Button onClick={add} className="w-full"><Plus className="mr-1 h-4 w-4" />Add</Button></div>
         </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          New users sign in at the login screen with the email and password set here. Student/Mentor/Counsellor accounts start with a blank profile.
+        </p>
       </Card>
 
       <Card className="p-4">
