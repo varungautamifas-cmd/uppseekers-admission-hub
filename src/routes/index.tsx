@@ -9,6 +9,7 @@ import { Tasks } from "@/components/portal/tabs/Tasks";
 import { Schedule } from "@/components/portal/tabs/Schedule";
 import { Universities } from "@/components/portal/tabs/Universities";
 import { Messages } from "@/components/portal/tabs/Messages";
+import { Settings } from "@/components/portal/tabs/Settings";
 import { Toaster } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -157,6 +158,7 @@ function PortalShell() {
             {active === "schedule" && <Schedule />}
             {active === "universities" && <Universities />}
             {active === "messages" && <Messages />}
+            {active === "settings" && <Settings />}
           </div>
         </main>
       </div>
