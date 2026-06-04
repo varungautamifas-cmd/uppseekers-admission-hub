@@ -49,7 +49,13 @@ function Index() {
 const ADMIN_EMAIL = "uppseekers@gmail.com";
 const ADMIN_PASSWORD = "123456";
 
-function AuthGate({ children }: { children: ((user: CurrentUser) => React.ReactNode) | React.ReactNode }) {
+function AuthGate({
+  render,
+  children,
+}: {
+  render: (user: CurrentUser) => React.ReactNode;
+  children?: React.ReactNode;
+}) {
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<CurrentUser | null>(null);
 
@@ -75,12 +81,10 @@ function AuthGate({ children }: { children: ((user: CurrentUser) => React.ReactN
     );
   }
 
-  // Pick up newly created accounts that may have been added in this session
-  const content = typeof children === "function" ? (children as (u: CurrentUser) => React.ReactNode)(user) : children;
-
   return (
     <>
-      {content}
+      {render(user)}
+      {children}
       <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-md border bg-background px-3 py-1.5 text-xs shadow-sm">
         <span className="text-muted-foreground">
           {user.name} <span className="opacity-60">({user.role})</span>
