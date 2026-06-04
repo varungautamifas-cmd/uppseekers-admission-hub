@@ -34,12 +34,13 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   return (
-    <AuthGate>
-      {(user) => (
+    <AuthGate
+      render={(user) => (
         <PortalProvider blank={!user.isAdmin} studentName={user.name}>
           <PortalShell />
         </PortalProvider>
       )}
+    >
       <Toaster richColors position="top-right" />
     </AuthGate>
   );
